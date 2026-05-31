@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-outfit);
+  --font-display: var(--font-jakarta);
+
+  --color-coral: #FF6B6B;
+  --color-cyan: #00D4FF;
+  --color-violet: #A855F7;
+  --color-lime: #84FF57;
+  --color-gold: #FBBF24;
+  --color-dark: #0F0F23;
+  --color-dark-mid: #1A1A3E;
+  --color-off-white: #F8FAFC;
+  --color-gray-muted: #94A3B8;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--color-off-white);
+  color: var(--color-dark);
+}
+
+/* ─── Typography ─────────────────────────────── */
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* ─── Brand utilities ────────────────────────── */
+
+.gradient-text {
+  background: linear-gradient(90deg, #FF6B6B, #A855F7, #00D4FF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-btn {
+  background: linear-gradient(135deg, #FF6B6B, #A855F7);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  will-change: transform;
+}
+
+.gradient-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(168, 85, 247, 0.35);
+}
+
+.gradient-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* ─── Cards ──────────────────────────────────── */
+
+.card {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 1rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: 0 8px 32px rgba(168, 85, 247, 0.1);
+}
+
+/* ─── Focus ring ─────────────────────────────── */
+
+:focus-visible {
+  outline: 2px solid #A855F7;
+  outline-offset: 2px;
+}
+
+/* ─── Scrollbar ──────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.25);
+  border-radius: 3px;
+}
+
+/* ─── Reduced motion ─────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .gradient-btn,
+  .card {
+    transition: none;
+  }
+}
