@@ -74,7 +74,7 @@ export function Sidebar() {
 
       {/* User button */}
       <div className="flex items-center gap-3 px-3 py-2 border-t border-black/5 pt-4">
-        <UserButton afterSignOutUrl="/sign-in" />
+        <UserButton signInUrl="/sign-in" />
         <span className="text-sm text-[#94A3B8] truncate">Account</span>
       </div>
     </aside>
