@@ -10,11 +10,9 @@ const NICHES = [
   'Fashion', 'Travel', 'Health', 'Business', 'Art', 'Other',
 ];
 
-const PRICE_TIERS = [
-  { cents: 999, label: '$9.99/mo', desc: '100 messages included', credits: 100 },
-  { cents: 1999, label: '$19.99/mo', desc: '300 messages included', credits: 300, popular: true },
-  { cents: 4999, label: '$49.99/mo', desc: 'Unlimited messages', credits: 9999 },
-];
+const MIN_PRICES = [999, 1999, 4999]; // minimum cents per tier
+const DEFAULT_CREDITS = [100, 300, 800];
+const TIER_NAMES = ['Basic', 'Standard', 'Premium'];
 
 type PersonalitySlider = {
   key: string;
@@ -46,8 +44,23 @@ export default function OnboardingPage() {
   const [sliders, setSliders] = useState(DEFAULT_SLIDERS);
   const [blockedTopics, setBlockedTopics] = useState('');
 
-  // Step 3: Pricing
-  const [selectedPrice, setSelectedPrice] = useState(1); // index
+  // Step 3: Pricing — 3 tiers with adjustable prices
+  const [prices, setPrices] = useState([999, 1999, 4999]); // cents
+  const [credits] = useState(DEFAULT_CREDITS); // fixed credits per tier
+
+  function updatePrice(index: number, cents: number) {
+    setPrices((prev) => {
+      const next = [...prev];
+      // Enforce minimum
+      next[index] = Math.max(cents, MIN_PRICES[index]);
+      // Ensure tier order (basic < standard < premium)
+      if (index === 0 && next[0] >= next[1]) next[0] = next[1] - 100;
+      if (index === 1 && next[1] >= next[2]) next[1] = next[2] - 100;
+      if (index === 1 && next[1] <= next[0]) next[1] = next[0] + 100;
+      if (index === 2 && next[2] <= next[1]) next[2] = next[1] + 100;
+      return next;
+    });
+  }
 
   function updateSlider(key: string, value: number) {
     setSliders((prev) =>
@@ -62,7 +75,7 @@ export default function OnboardingPage() {
       sliders.map((s) => [s.key, s.value])
     );
 
-    const tier = PRICE_TIERS[selectedPrice];
+    const tiers = prices.map((p, i) => ({ cents: p, credits: credits[i], name: TIER_NAMES[i] }));
 
     try {
       const res = await fetch('/api/twin', {
@@ -77,8 +90,9 @@ export default function OnboardingPage() {
             .split(',')
             .map((t) => t.trim())
             .filter(Boolean),
-          monthlyPriceCents: tier.cents,
-          creditsPerMonth: tier.credits,
+          pricingTiers: tiers,
+          monthlyPriceCents: tiers[1].cents,
+          creditsPerMonth: tiers[1].credits,
         }),
       });
 
@@ -237,52 +251,62 @@ export default function OnboardingPage() {
         {step === 3 && (
           <div className="animate-[fadeSlideIn_0.3s_ease]">
             <h1 className="font-display font-800 text-3xl text-white mb-2">
-              Set your <span className="gradient-text">price</span>
+              Set your <span className="gradient-text">prices</span>
             </h1>
             <p className="text-[#94A3B8] mb-8">
-              Choose how much fans pay monthly to chat with your twin. You keep 85-90%.
+              Set 3 pricing tiers for your fans. Drag the sliders to adjust. You keep 85-90%.
             </p>
 
-            <div className="space-y-3">
-              {PRICE_TIERS.map((tier, i) => (
-                <button
-                  key={tier.cents}
-                  onClick={() => setSelectedPrice(i)}
-                  className={`w-full p-5 rounded-xl border text-left transition-all relative ${
-                    selectedPrice === i
-                      ? 'border-[#A855F7] bg-[#A855F7]/10'
-                      : 'border-white/10 hover:border-white/20'
-                  }`}
-                >
-                  {tier.popular && (
-                    <span className="absolute -top-2.5 right-4 text-[10px] font-700 uppercase tracking-wider bg-[#A855F7] text-white px-3 py-0.5 rounded-full">
-                      Popular
-                    </span>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-display font-700 text-xl text-white">{tier.label}</p>
-                      <p className="text-sm text-[#94A3B8] mt-0.5">{tier.desc}</p>
+            <div className="space-y-6">
+              {TIER_NAMES.map((tierName, i) => {
+                const priceDollars = (prices[i] / 100).toFixed(2);
+                const earnings = ((prices[i] * 0.85) / 100).toFixed(2);
+                const maxCents = i === 2 ? 19999 : (prices[i + 1] || 19999) - 100;
+
+                return (
+                  <div key={tierName} className="p-5 rounded-xl border border-white/10 bg-white/[0.03]">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-700 uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                          i === 0 ? 'bg-[#00D4FF]/20 text-[#00D4FF]' :
+                          i === 1 ? 'bg-[#A855F7]/20 text-[#A855F7]' :
+                          'bg-[#FF6B6B]/20 text-[#FF6B6B]'
+                        }`}>
+                          {tierName}
+                        </span>
+                        <span className="text-sm text-[#94A3B8]">{credits[i]} messages/mo</span>
+                      </div>
+                      <span className="font-display font-800 text-2xl text-white">
+                        ${priceDollars}
+                      </span>
                     </div>
-                    <div
-                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                        selectedPrice === i
-                          ? 'border-[#A855F7] bg-[#A855F7]'
-                          : 'border-white/20'
-                      }`}
-                    >
-                      {selectedPrice === i && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
+
+                    <input
+                      type="range"
+                      min={MIN_PRICES[i]}
+                      max={maxCents}
+                      step={100}
+                      value={prices[i]}
+                      onChange={(e) => updatePrice(i, Number(e.target.value))}
+                      className="w-full h-2 rounded-full appearance-none cursor-pointer mb-2"
+                      style={{
+                        background: `linear-gradient(to right, ${
+                          i === 0 ? '#00D4FF' : i === 1 ? '#A855F7' : '#FF6B6B'
+                        } ${((prices[i] - MIN_PRICES[i]) / (maxCents - MIN_PRICES[i])) * 100}%, rgba(255,255,255,0.1) ${((prices[i] - MIN_PRICES[i]) / (maxCents - MIN_PRICES[i])) * 100}%)`,
+                      }}
+                    />
+
+                    <div className="flex justify-between text-xs">
+                      <span className="text-[#94A3B8]">Min ${(MIN_PRICES[i] / 100).toFixed(2)}</span>
+                      <span className="text-[#84FF57] font-500">You earn ~${earnings}/sub</span>
                     </div>
                   </div>
-                  <p className="text-xs text-[#84FF57] mt-2 font-500">
-                    You earn ~${((tier.cents * 0.85) / 100).toFixed(2)}/subscriber
-                  </p>
-                </button>
-              ))}
+                );
+              })}
             </div>
 
             <p className="text-xs text-[#94A3B8] text-center mt-4">
-              You can change your price anytime. Fans can also buy extra message packs.
+              Fans can also buy extra message packs. You can change prices anytime.
             </p>
 
             <div className="flex gap-3 mt-8">
