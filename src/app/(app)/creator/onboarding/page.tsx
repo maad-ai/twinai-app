@@ -7,7 +7,7 @@ import { ArrowRight, ArrowLeft, Sparkles, Check } from 'lucide-react';
 const NICHES = [
   'Fitness', 'Finance', 'Beauty', 'Gaming', 'Cooking',
   'Tech', 'Lifestyle', 'Music', 'Education', 'Comedy',
-  'Fashion', 'Travel', 'Health', 'Business', 'Art',
+  'Fashion', 'Travel', 'Health', 'Business', 'Art', 'Other',
 ];
 
 const PRICE_TIERS = [
