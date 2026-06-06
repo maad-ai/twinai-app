@@ -1,26 +1,85 @@
 import { Compass } from 'lucide-react';
+import { createAdminClient } from '@/lib/supabase/admin';
+import Link from 'next/link';
 
 export const metadata = { title: 'Explore' };
 
-export default function ExplorePage() {
+export default async function ExplorePage() {
+  const supabase = createAdminClient();
+
+  const { data: twins } = await supabase
+    .from('twins')
+    .select(`
+      id,
+      name,
+      slug,
+      tagline,
+      niche,
+      monthly_price_cents,
+      total_subscribers,
+      total_messages,
+      status,
+      creator_id,
+      profiles!twins_creator_id_fkey (
+        display_name,
+        avatar_url
+      )
+    `)
+    .in('status', ['active', 'draft'])
+    .order('total_subscribers', { ascending: false });
+
   return (
-    <div className="p-8">
-      <div className="flex items-center gap-3 mb-6">
+    <div className="p-6 md:p-8">
+      <div className="flex items-center gap-3 mb-2">
         <Compass className="w-6 h-6 text-[#A855F7]" strokeWidth={1.8} />
         <h1 className="font-display font-800 text-2xl text-[#0F0F23]">Explore Twins</h1>
       </div>
       <p className="text-[#94A3B8] mb-8">Discover AI twins of your favorite creators.</p>
 
-      {/* Placeholder grid */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="card rounded-2xl p-6 animate-pulse">
-            <div className="w-16 h-16 rounded-full bg-[#F1F5F9] mb-4" />
-            <div className="h-4 bg-[#F1F5F9] rounded w-2/3 mb-2" />
-            <div className="h-3 bg-[#F1F5F9] rounded w-1/2" />
-          </div>
-        ))}
-      </div>
+      {!twins || twins.length === 0 ? (
+        <div className="card rounded-2xl p-12 text-center max-w-md mx-auto">
+          <Compass className="w-10 h-10 text-[#94A3B8]/30 mx-auto mb-4" />
+          <p className="font-display font-700 text-lg text-[#0F0F23] mb-2">No twins yet</p>
+          <p className="text-sm text-[#94A3B8]">
+            Be the first creator to launch a twin!
+          </p>
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {twins.map((twin) => (
+            <Link
+              key={twin.id}
+              href={`/explore/${twin.slug}`}
+              className="card rounded-2xl p-6 hover:border-[#A855F7]/20 transition-all block group"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#A855F7] to-[#00D4FF] flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-lg font-800">{twin.name.charAt(0)}</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="font-display font-700 text-[#0F0F23] truncate group-hover:text-[#A855F7] transition-colors">
+                    {twin.name}
+                  </p>
+                  <p className="text-xs text-[#94A3B8]">{twin.niche}</p>
+                </div>
+              </div>
+
+              {twin.tagline && (
+                <p className="text-sm text-[#94A3B8] mb-4 line-clamp-2">{twin.tagline}</p>
+              )}
+
+              <div className="flex items-center justify-between pt-3 border-t border-black/5">
+                <span className="text-sm font-600 text-[#0F0F23]">
+                  ${(twin.monthly_price_cents / 100).toFixed(2)}/mo
+                </span>
+                <span className="text-xs text-[#94A3B8]">
+                  {twin.total_subscribers} subscribers
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
