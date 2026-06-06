@@ -37,30 +37,44 @@ export default function TwinProfilePage() {
     load();
   }, [params.twinSlug]);
 
-  async function handleStartChat() {
+  async function handleSubscribe() {
     if (!twin) return;
     setStarting(true);
 
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        twinId: twin.id,
-        message: twin.settings?.welcome_message
-          ? `Hi! Tell me about yourself.`
-          : `Hey! What can you help me with?`,
-      }),
-    });
+    try {
+      const res = await fetch('/api/subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ twinId: twin.id }),
+      });
 
-    // Get conversation ID from the conversations list
-    const convRes = await fetch('/api/chat');
-    if (convRes.ok) {
-      const convData = await convRes.json();
-      const conv = convData.conversations?.find((c: { twin_id: string }) => c.twin_id === twin.id);
-      if (conv) {
-        router.push(`/chat/${conv.id}`);
-        return;
+      const data = await res.json();
+
+      if (data.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+      } else if (data.error === 'Already subscribed') {
+        // Already subscribed — go to chat directly
+        const chatRes = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ twinId: twin.id, message: 'Hey!' }),
+        });
+
+        if (chatRes.ok) {
+          const convRes = await fetch('/api/chat');
+          if (convRes.ok) {
+            const convData = await convRes.json();
+            const conv = convData.conversations?.find((c: { twin_id: string }) => c.twin_id === twin.id);
+            if (conv) {
+              router.push(`/chat/${conv.id}`);
+              return;
+            }
+          }
+        }
       }
+    } catch {
+      // ignore
     }
 
     setStarting(false);
@@ -121,7 +135,7 @@ export default function TwinProfilePage() {
         </p>
 
         <button
-          onClick={handleStartChat}
+          onClick={handleSubscribe}
           disabled={starting}
           className="w-full gradient-btn text-white font-600 py-3.5 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
         >
