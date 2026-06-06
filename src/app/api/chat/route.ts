@@ -3,10 +3,23 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { streamChat } from '@/lib/ai/provider';
 
 function decodeContent(data: unknown): string {
+  // Handle JSON Buffer: {"type":"Buffer","data":[72,101,...]}
+  if (data && typeof data === 'object' && 'type' in (data as Record<string, unknown>) && (data as Record<string, unknown>).type === 'Buffer') {
+    const arr = (data as { data: number[] }).data;
+    return Buffer.from(arr).toString('utf-8');
+  }
+  // Handle hex string from Supabase: \x48656c6c6f
   if (typeof data === 'string') {
     if (data.startsWith('\\x')) {
       return Buffer.from(data.slice(2), 'hex').toString('utf-8');
     }
+    // Try parsing as JSON Buffer
+    try {
+      const parsed = JSON.parse(data);
+      if (parsed?.type === 'Buffer' && Array.isArray(parsed.data)) {
+        return Buffer.from(parsed.data).toString('utf-8');
+      }
+    } catch { /* not JSON */ }
     return data;
   }
   if (Buffer.isBuffer(data)) {
@@ -110,12 +123,14 @@ export async function POST(req: Request) {
   // Add current message
   history.push({ role: 'user', content: message.trim() });
 
-  // Save user message
+  // Save user message (store as hex-encoded text in BYTEA)
+  const userHex = '\\x' + Buffer.from(message.trim(), 'utf-8').toString('hex');
+  const placeholderIv = '\\x' + '0'.repeat(32);
   await supabase.from('messages').insert({
     conversation_id: conversation.id,
     role: 'user',
-    content_encrypted: Buffer.from(message.trim()),
-    content_iv: Buffer.from('0'.repeat(32), 'hex'), // placeholder IV
+    content_encrypted: userHex,
+    content_iv: placeholderIv,
   });
 
   // Stream response
@@ -131,11 +146,12 @@ export async function POST(req: Request) {
         }
 
         // Save assistant response
+        const assistantHex = '\\x' + Buffer.from(fullResponse, 'utf-8').toString('hex');
         await supabase.from('messages').insert({
           conversation_id: conversation!.id,
           role: 'assistant',
-          content_encrypted: Buffer.from(fullResponse),
-          content_iv: Buffer.from('0'.repeat(32), 'hex'),
+          content_encrypted: assistantHex,
+          content_iv: placeholderIv,
         });
 
         // Update conversation

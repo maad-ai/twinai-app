@@ -4,11 +4,22 @@ import { createAdminClient } from '@/lib/supabase/admin';
 export const dynamic = 'force-dynamic';
 
 function decodeContent(data: unknown): string {
+  // Handle JSON Buffer: {"type":"Buffer","data":[72,101,...]}
+  if (data && typeof data === 'object' && 'type' in (data as Record<string, unknown>) && (data as Record<string, unknown>).type === 'Buffer') {
+    const arr = (data as { data: number[] }).data;
+    return Buffer.from(arr).toString('utf-8');
+  }
+  // Handle hex string: \x48656c6c6f
   if (typeof data === 'string') {
-    // Supabase returns BYTEA as hex string: \x48656c6c6f
     if (data.startsWith('\\x')) {
       return Buffer.from(data.slice(2), 'hex').toString('utf-8');
     }
+    try {
+      const parsed = JSON.parse(data);
+      if (parsed?.type === 'Buffer' && Array.isArray(parsed.data)) {
+        return Buffer.from(parsed.data).toString('utf-8');
+      }
+    } catch { /* not JSON */ }
     return data;
   }
   if (Buffer.isBuffer(data)) {
