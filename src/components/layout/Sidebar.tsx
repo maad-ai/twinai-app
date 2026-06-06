@@ -9,7 +9,6 @@ const fanLinks = [
   { href: '/explore', label: 'Explore', icon: Compass },
   { href: '/chat', label: 'Messages', icon: MessageCircle },
   { href: '/subscription', label: 'Subscriptions', icon: Sparkles },
-  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 const creatorLinks = [
@@ -18,18 +17,20 @@ const creatorLinks = [
   { href: '/creator/subscribers', label: 'Subscribers', icon: Users },
   { href: '/creator/earnings', label: 'Earnings', icon: DollarSign },
   { href: '/creator/conversations', label: 'Conversations', icon: MessageCircle },
-  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const isCreatorSection = pathname.startsWith('/creator');
-
-  // Show creator nav if on creator pages, fan nav otherwise
   const links = isCreatorSection ? creatorLinks : fanLinks;
-  const otherMode = isCreatorSection
-    ? { href: '/explore', label: 'Switch to Fan', icon: Compass }
-    : { href: '/creator', label: 'Creator Dashboard', icon: LayoutDashboard };
+
+  function isActive(href: string) {
+    if (href === '/creator') {
+      // Only exact match for /creator dashboard (not /creator/twin, etc.)
+      return pathname === '/creator';
+    }
+    return pathname === href || pathname.startsWith(href + '/');
+  }
 
   return (
     <aside className="hidden md:flex flex-col w-64 bg-white border-r border-black/5 p-4">
@@ -44,38 +45,41 @@ export function Sidebar() {
 
       {/* Nav links */}
       <nav className="flex-1 space-y-1">
-        {links.map((link) => {
-          const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-500 transition-all ${
-                isActive
-                  ? 'bg-[#A855F7]/10 text-[#A855F7]'
-                  : 'text-[#94A3B8] hover:bg-[#F8FAFC] hover:text-[#0F0F23]'
-              }`}
-            >
-              <link.icon className="w-5 h-5" strokeWidth={1.8} />
-              {link.label}
-            </Link>
-          );
-        })}
+        {links.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-500 transition-all ${
+              isActive(link.href)
+                ? 'bg-[#A855F7]/10 text-[#A855F7]'
+                : 'text-[#94A3B8] hover:bg-[#F8FAFC] hover:text-[#0F0F23]'
+            }`}
+          >
+            <link.icon className="w-5 h-5" strokeWidth={1.8} />
+            {link.label}
+          </Link>
+        ))}
       </nav>
 
-      {/* Switch mode */}
-      <Link
-        href={otherMode.href}
-        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-500 text-[#94A3B8] hover:bg-[#F8FAFC] hover:text-[#0F0F23] transition-all mb-4 border border-dashed border-black/10"
-      >
-        <otherMode.icon className="w-5 h-5" strokeWidth={1.8} />
-        {otherMode.label}
-      </Link>
-
-      {/* User button */}
-      <div className="flex items-center gap-3 px-3 py-2 border-t border-black/5 pt-4">
-        <UserButton signInUrl="/sign-in" />
-        <span className="text-sm text-[#94A3B8] truncate">Account</span>
+      {/* Bottom: Settings + Account */}
+      <div className="border-t border-black/5 pt-3 space-y-1">
+        <div className="flex items-center gap-2">
+          <Link
+            href="/settings"
+            className={`p-2 rounded-lg transition-all ${
+              pathname === '/settings' || pathname.startsWith('/settings/')
+                ? 'bg-[#A855F7]/10 text-[#A855F7]'
+                : 'text-[#94A3B8] hover:bg-[#F8FAFC] hover:text-[#0F0F23]'
+            }`}
+            title="Settings"
+          >
+            <Settings className="w-5 h-5" strokeWidth={1.8} />
+          </Link>
+          <div className="flex items-center gap-2 flex-1">
+            <UserButton signInUrl="/sign-in" />
+            <span className="text-sm text-[#94A3B8] truncate">Account</span>
+          </div>
+        </div>
       </div>
     </aside>
   );
