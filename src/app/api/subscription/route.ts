@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { twinId } = body;
+  const { twinId, priceCents, credits } = body;
 
   if (!twinId) {
     return Response.json({ error: 'Twin ID required' }, { status: 400 });
@@ -33,9 +33,12 @@ export async function POST(req: Request) {
   // Get twin
   const { data: twin } = await supabase
     .from('twins')
-    .select('id, name, monthly_price_cents, stripe_price_id, stripe_product_id, creator_id')
+    .select('id, name, monthly_price_cents, stripe_price_id, stripe_product_id, creator_id, settings')
     .eq('id', twinId)
     .single();
+
+  const selectedPrice = priceCents || twin?.monthly_price_cents || 1999;
+  const selectedCredits = credits || 300;
 
   if (!twin) {
     return Response.json({ error: 'Twin not found' }, { status: 404 });
@@ -70,33 +73,30 @@ export async function POST(req: Request) {
       .eq('id', profile.id);
   }
 
-  // Get or create Stripe product + price for this twin
-  let priceId = twin.stripe_price_id;
+  // Create Stripe product + price for this tier
+  let priceId: string | null = null;
 
-  if (!priceId) {
+  {
     // Create product
     const product = await stripe.products.create({
       name: `Chat with ${twin.name}`,
       metadata: { twin_id: twin.id },
     });
 
-    // Create price
+    // Create price for selected tier
     const price = await stripe.prices.create({
       product: product.id,
-      unit_amount: twin.monthly_price_cents,
+      unit_amount: selectedPrice,
       currency: 'usd',
       recurring: { interval: 'month' },
     });
 
     priceId = price.id;
 
-    // Save to twin
+    // Save product to twin (price varies per tier so we don't cache it)
     await supabase
       .from('twins')
-      .update({
-        stripe_product_id: product.id,
-        stripe_price_id: price.id,
-      })
+      .update({ stripe_product_id: product.id })
       .eq('id', twin.id);
   }
 
@@ -108,12 +108,15 @@ export async function POST(req: Request) {
     line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.twiinn.ai'}/chat?subscribed=${twinId}`,
     cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.twiinn.ai'}/explore/${twin.name.toLowerCase().replace(/\s+/g, '-')}`,
+    metadata: {
+      fan_id: profile.id,
+      twin_id: twin.id,
+    },
     subscription_data: {
       metadata: {
         fan_id: profile.id,
         twin_id: twin.id,
       },
-      application_fee_percent: 15, // Marc takes 15%
     },
   });
 

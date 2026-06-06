@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { MessageCircle, Users, Sparkles } from 'lucide-react';
+import { MessageCircle, Users, Sparkles, Check } from 'lucide-react';
 
 type Twin = {
   id: string;
@@ -15,8 +15,15 @@ type Twin = {
   total_messages: number;
   settings: {
     welcome_message?: string;
+    pricing_tiers?: { cents: number; credits: number; name: string }[];
   };
 };
+
+const DEFAULT_TIERS = [
+  { cents: 999, credits: 100, name: 'Basic' },
+  { cents: 1999, credits: 300, name: 'Standard' },
+  { cents: 4999, credits: 800, name: 'Premium' },
+];
 
 export default function TwinProfilePage() {
   const params = useParams();
@@ -24,6 +31,7 @@ export default function TwinProfilePage() {
   const [twin, setTwin] = useState<Twin | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+  const [selectedTier, setSelectedTier] = useState(1); // default: Standard
 
   useEffect(() => {
     async function load() {
@@ -37,30 +45,36 @@ export default function TwinProfilePage() {
     load();
   }, [params.twinSlug]);
 
+  const tiers = twin?.settings?.pricing_tiers || DEFAULT_TIERS;
+
   async function handleSubscribe() {
     if (!twin) return;
     setStarting(true);
+
+    const tier = tiers[selectedTier];
 
     try {
       const res = await fetch('/api/subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ twinId: twin.id }),
+        body: JSON.stringify({
+          twinId: twin.id,
+          priceCents: tier.cents,
+          credits: tier.credits,
+        }),
       });
 
       const data = await res.json();
 
       if (data.url) {
-        // Redirect to Stripe Checkout
         window.location.href = data.url;
       } else if (data.error === 'Already subscribed') {
-        // Already subscribed — go to chat directly
+        // Go to chat
         const chatRes = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ twinId: twin.id, message: 'Hey!' }),
         });
-
         if (chatRes.ok) {
           const convRes = await fetch('/api/chat');
           if (convRes.ok) {
@@ -126,32 +140,68 @@ export default function TwinProfilePage() {
         </div>
       </div>
 
-      {/* Price + CTA */}
-      <div className="card rounded-2xl p-6 text-center">
-        <p className="text-sm text-[#94A3B8] mb-1">Monthly subscription</p>
-        <p className="font-display font-800 text-3xl text-[#0F0F23] mb-4">
-          ${(twin.monthly_price_cents / 100).toFixed(2)}
-          <span className="text-sm font-400 text-[#94A3B8]">/mo</span>
-        </p>
-
-        <button
-          onClick={handleSubscribe}
-          disabled={starting}
-          className="w-full gradient-btn text-white font-600 py-3.5 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          {starting ? (
-            'Starting...'
-          ) : (
-            <>
-              <Sparkles className="w-4 h-4" /> Start Chatting
-            </>
-          )}
-        </button>
-
-        <p className="text-xs text-[#94A3B8] mt-3">
-          Free preview — subscription required for full access
-        </p>
+      {/* Pricing tiers */}
+      <div className="mb-6">
+        <p className="text-sm font-600 text-[#0F0F23] mb-3 text-center">Choose your plan</p>
+        <div className="space-y-2">
+          {tiers.map((tier, i) => (
+            <button
+              key={i}
+              onClick={() => setSelectedTier(i)}
+              className={`w-full p-4 rounded-xl border text-left transition-all flex items-center justify-between ${
+                selectedTier === i
+                  ? 'border-[#A855F7] bg-[#A855F7]/5'
+                  : 'border-black/5 hover:border-black/10'
+              }`}
+            >
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-700 uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                    i === 0 ? 'bg-[#00D4FF]/10 text-[#00D4FF]' :
+                    i === 1 ? 'bg-[#A855F7]/10 text-[#A855F7]' :
+                    'bg-[#FF6B6B]/10 text-[#FF6B6B]'
+                  }`}>
+                    {tier.name}
+                  </span>
+                  {i === 1 && (
+                    <span className="text-[10px] font-600 text-[#A855F7] uppercase">Popular</span>
+                  )}
+                </div>
+                <p className="text-sm text-[#94A3B8] mt-1">{tier.credits} messages/month</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-display font-800 text-xl text-[#0F0F23]">
+                  ${(tier.cents / 100).toFixed(2)}
+                </span>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  selectedTier === i ? 'border-[#A855F7] bg-[#A855F7]' : 'border-black/10'
+                }`}>
+                  {selectedTier === i && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
+
+      {/* Subscribe button */}
+      <button
+        onClick={handleSubscribe}
+        disabled={starting}
+        className="w-full gradient-btn text-white font-600 py-3.5 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
+      >
+        {starting ? (
+          'Redirecting to checkout...'
+        ) : (
+          <>
+            <Sparkles className="w-4 h-4" /> Subscribe — ${(tiers[selectedTier].cents / 100).toFixed(2)}/mo
+          </>
+        )}
+      </button>
+
+      <p className="text-xs text-[#94A3B8] text-center mt-3">
+        Cancel anytime. Extra message packs available.
+      </p>
     </div>
   );
 }
