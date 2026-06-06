@@ -22,41 +22,38 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient();
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const obj = event.data.object as any;
+
   switch (event.type) {
     case 'checkout.session.completed': {
-      const session = event.data.object;
-      const subscriptionId = session.subscription as string;
-      const fanId = session.metadata?.fan_id || session.subscription_data?.metadata?.fan_id;
-      const twinId = session.metadata?.twin_id || session.subscription_data?.metadata?.twin_id;
+      const subscriptionId = obj.subscription as string;
+      let fanId = obj.metadata?.fan_id;
+      let twinId = obj.metadata?.twin_id;
 
       if (!fanId || !twinId) {
-        // Try to get metadata from the subscription
         const sub = await stripe.subscriptions.retrieve(subscriptionId);
-        const subFanId = sub.metadata?.fan_id;
-        const subTwinId = sub.metadata?.twin_id;
+        fanId = sub.metadata?.fan_id;
+        twinId = sub.metadata?.twin_id;
+      }
 
-        if (subFanId && subTwinId) {
-          await createSubscription(supabase, subFanId, subTwinId, subscriptionId);
-        }
-      } else {
+      if (fanId && twinId) {
         await createSubscription(supabase, fanId, twinId, subscriptionId);
       }
       break;
     }
 
     case 'invoice.payment_succeeded': {
-      const invoice = event.data.object;
-      const subscriptionId = invoice.subscription as string;
+      const subscriptionId = obj.subscription as string;
 
-      if (invoice.billing_reason === 'subscription_cycle') {
-        // Monthly renewal — reset credits
+      if (obj.billing_reason === 'subscription_cycle') {
         await supabase
           .from('subscriptions')
           .update({
-            credits_remaining: 300, // Reset to tier credits
+            credits_remaining: 300,
             status: 'active',
-            current_period_start: new Date((invoice.period_start ?? 0) * 1000).toISOString(),
-            current_period_end: new Date((invoice.period_end ?? 0) * 1000).toISOString(),
+            current_period_start: new Date((obj.period_start ?? 0) * 1000).toISOString(),
+            current_period_end: new Date((obj.period_end ?? 0) * 1000).toISOString(),
             updated_at: new Date().toISOString(),
           })
           .eq('stripe_subscription_id', subscriptionId);
@@ -65,32 +62,26 @@ export async function POST(req: Request) {
     }
 
     case 'customer.subscription.deleted': {
-      const subscription = event.data.object;
-
       await supabase
         .from('subscriptions')
-        .update({
-          status: 'canceled',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('stripe_subscription_id', subscription.id);
+        .update({ status: 'canceled', updated_at: new Date().toISOString() })
+        .eq('stripe_subscription_id', obj.id);
       break;
     }
 
     case 'customer.subscription.updated': {
-      const subscription = event.data.object;
-      const status = subscription.status === 'active' ? 'active' :
-                     subscription.status === 'past_due' ? 'past_due' :
-                     subscription.status === 'canceled' ? 'canceled' : 'active';
+      const status = obj.status === 'active' ? 'active' :
+                     obj.status === 'past_due' ? 'past_due' :
+                     obj.status === 'canceled' ? 'canceled' : 'active';
 
       await supabase
         .from('subscriptions')
         .update({
           status,
-          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          current_period_end: new Date(obj.current_period_end * 1000).toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .eq('stripe_subscription_id', subscription.id);
+        .eq('stripe_subscription_id', obj.id);
       break;
     }
   }
