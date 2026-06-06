@@ -2,6 +2,19 @@ import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { streamChat } from '@/lib/ai/provider';
 
+function decodeContent(data: unknown): string {
+  if (typeof data === 'string') {
+    if (data.startsWith('\\x')) {
+      return Buffer.from(data.slice(2), 'hex').toString('utf-8');
+    }
+    return data;
+  }
+  if (Buffer.isBuffer(data)) {
+    return data.toString('utf-8');
+  }
+  return String(data);
+}
+
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
@@ -91,7 +104,7 @@ export async function POST(req: Request) {
     .reverse()
     .map((m) => ({
       role: m.role as 'user' | 'assistant',
-      content: Buffer.from(m.content_encrypted).toString('utf-8'),
+      content: decodeContent(m.content_encrypted),
     }));
 
   // Add current message

@@ -3,6 +3,20 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
+function decodeContent(data: unknown): string {
+  if (typeof data === 'string') {
+    // Supabase returns BYTEA as hex string: \x48656c6c6f
+    if (data.startsWith('\\x')) {
+      return Buffer.from(data.slice(2), 'hex').toString('utf-8');
+    }
+    return data;
+  }
+  if (Buffer.isBuffer(data)) {
+    return data.toString('utf-8');
+  }
+  return String(data);
+}
+
 export async function GET(req: Request) {
   const { userId } = await auth();
   if (!userId) {
@@ -51,7 +65,7 @@ export async function GET(req: Request) {
   const decryptedMessages = (messages || []).map((m) => ({
     id: m.id,
     role: m.role,
-    content: Buffer.from(m.content_encrypted).toString('utf-8'),
+    content: decodeContent(m.content_encrypted),
     created_at: m.created_at,
   }));
 
