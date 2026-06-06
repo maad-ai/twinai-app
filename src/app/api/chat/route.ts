@@ -68,6 +68,54 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Twin not found' }, { status: 404 });
   }
 
+  // Check if fan is the creator (creators can chat with their own twin for free)
+  const isCreator = twin.creator_id === profile.id;
+
+  // Check subscription + credits (skip for creators testing their own twin)
+  if (!isCreator) {
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('id, credits_remaining, status')
+      .eq('fan_id', profile.id)
+      .eq('twin_id', twinId)
+      .eq('status', 'active')
+      .single();
+
+    if (!subscription) {
+      return Response.json({
+        error: 'Not subscribed',
+        code: 'NOT_SUBSCRIBED',
+        message: 'You need to subscribe to chat with this twin.',
+      }, { status: 403 });
+    }
+
+    if (subscription.credits_remaining <= 0) {
+      return Response.json({
+        error: 'No credits',
+        code: 'NO_CREDITS',
+        message: 'You\'ve used all your messages this month. Buy a credit pack to continue.',
+        credits_remaining: 0,
+      }, { status: 403 });
+    }
+
+    // Deduct 1 credit
+    await supabase
+      .from('subscriptions')
+      .update({
+        credits_remaining: subscription.credits_remaining - 1,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', subscription.id);
+
+    // Log credit transaction
+    await supabase.from('credit_transactions').insert({
+      subscription_id: subscription.id,
+      type: 'message_sent',
+      amount: -1,
+      balance_after: subscription.credits_remaining - 1,
+    });
+  }
+
   // Get or create conversation
   let { data: conversation } = await supabase
     .from('conversations')

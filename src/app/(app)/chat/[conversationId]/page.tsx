@@ -20,6 +20,8 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [twinId, setTwinId] = useState('');
   const [twinName, setTwinName] = useState('');
+  const [credits, setCredits] = useState<number | null>(null);
+  const [chatError, setChatError] = useState('');
   const chatRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -32,7 +34,7 @@ export default function ChatPage() {
         setMessages(data.messages || []);
       }
 
-      // Get conversation details
+      // Get conversation details + credits
       const convRes = await fetch('/api/chat');
       if (convRes.ok) {
         const convData = await convRes.json();
@@ -40,6 +42,16 @@ export default function ChatPage() {
         if (conv) {
           setTwinId(conv.twin_id);
           setTwinName((conv.twins as { name: string })?.name || 'Twin');
+
+          // Fetch credits for this twin
+          const subRes = await fetch('/api/subscription');
+          if (subRes.ok) {
+            const subData = await subRes.json();
+            const sub = subData.subscriptions?.find((s: { twins: { id: string } }) => s.twins?.id === conv.twin_id);
+            if (sub) {
+              setCredits(sub.credits_remaining);
+            }
+          }
         }
       }
     }
@@ -59,6 +71,7 @@ export default function ChatPage() {
     const userMessage = input.trim();
     setInput('');
     setLoading(true);
+    setChatError('');
 
     // Add user message immediately
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
@@ -73,7 +86,28 @@ export default function ChatPage() {
         body: JSON.stringify({ twinId, message: userMessage }),
       });
 
-      if (!res.ok || !res.body) {
+      if (!res.ok) {
+        // Check for credit/subscription errors
+        const errData = await res.json().catch(() => ({}));
+
+        // Remove the empty streaming message
+        setMessages((prev) => prev.slice(0, -1));
+
+        if (errData.code === 'NO_CREDITS') {
+          setChatError('You\'ve used all your messages this month. Buy a credit pack to continue.');
+        } else if (errData.code === 'NOT_SUBSCRIBED') {
+          setChatError('You need to subscribe to chat with this twin.');
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            { role: 'assistant', content: 'Sorry, something went wrong. Try again.' },
+          ]);
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (!res.body) {
         setMessages((prev) => {
           const updated = [...prev];
           updated[updated.length - 1] = {
@@ -84,6 +118,11 @@ export default function ChatPage() {
         });
         setLoading(false);
         return;
+      }
+
+      // Deduct credit in UI
+      if (credits !== null) {
+        setCredits((prev) => (prev !== null ? Math.max(0, prev - 1) : null));
       }
 
       const reader = res.body.getReader();
@@ -147,14 +186,33 @@ export default function ChatPage() {
         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#A855F7] to-[#00D4FF] flex items-center justify-center flex-shrink-0">
           <span className="text-white text-sm font-700">{twinName.charAt(0)}</span>
         </div>
-        <div>
+        <div className="flex-1">
           <p className="font-display font-700 text-sm text-[#0F0F23]">{twinName}</p>
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#84FF57]" />
             <span className="text-[11px] text-[#94A3B8]">AI Twin</span>
           </div>
         </div>
+        {credits !== null && (
+          <div className={`text-xs font-600 px-3 py-1.5 rounded-full ${
+            credits > 50 ? 'bg-[#84FF57]/15 text-[#22C55E]' :
+            credits > 10 ? 'bg-[#FBBF24]/15 text-[#D97706]' :
+            'bg-[#FF6B6B]/15 text-[#FF6B6B]'
+          }`}>
+            {credits} msg
+          </div>
+        )}
       </div>
+
+      {/* Credit error banner */}
+      {chatError && (
+        <div className="px-4 py-3 bg-[#FF6B6B]/10 border-b border-[#FF6B6B]/20 text-center">
+          <p className="text-sm text-[#FF6B6B] font-500">{chatError}</p>
+          <Link href="/explore" className="text-xs text-[#A855F7] font-600 hover:underline mt-1 inline-block">
+            Buy more credits
+          </Link>
+        </div>
+      )}
 
       {/* Messages */}
       <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-3">
