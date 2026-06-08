@@ -62,8 +62,12 @@ export function Sidebar() {
       </nav>
 
       {/* Bottom: Settings + Account */}
-      <div className="border-t border-black/5 pt-3 space-y-1">
+      <div className="border-t border-black/5 pt-3">
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-1">
+            <UserButton signInUrl="/sign-in" />
+            <span className="text-sm text-[#94A3B8] truncate">Account</span>
+          </div>
           <Link
             href="/settings"
             className={`p-2 rounded-lg transition-all ${
@@ -75,10 +79,6 @@ export function Sidebar() {
           >
             <Settings className="w-5 h-5" strokeWidth={1.8} />
           </Link>
-          <div className="flex items-center gap-2 flex-1">
-            <UserButton signInUrl="/sign-in" />
-            <span className="text-sm text-[#94A3B8] truncate">Account</span>
-          </div>
         </div>
       </div>
     </aside>
