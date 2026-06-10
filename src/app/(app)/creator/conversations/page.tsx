@@ -1,26 +1,11 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { decodeMessage } from '@/lib/encryption';
 import { MessageCircle, Flag, Shield } from 'lucide-react';
 import Link from 'next/link';
 
 export const metadata = { title: 'Conversations' };
-
-function decodeContent(data: unknown): string {
-  if (data && typeof data === 'object' && 'type' in (data as Record<string, unknown>) && (data as Record<string, unknown>).type === 'Buffer') {
-    return Buffer.from((data as { data: number[] }).data).toString('utf-8');
-  }
-  if (typeof data === 'string') {
-    if (data.startsWith('\\x')) return Buffer.from(data.slice(2), 'hex').toString('utf-8');
-    try {
-      const p = JSON.parse(data);
-      if (p?.type === 'Buffer') return Buffer.from(p.data).toString('utf-8');
-    } catch { /* */ }
-    return data;
-  }
-  if (Buffer.isBuffer(data)) return data.toString('utf-8');
-  return String(data);
-}
 
 export default async function CreatorConversationsPage() {
   const { userId } = await auth();
@@ -66,15 +51,15 @@ export default async function CreatorConversationsPage() {
     (conversations || []).map(async (conv) => {
       const { data: lastMsg } = await supabase
         .from('messages')
-        .select('role, content_encrypted, created_at')
+        .select('role, content_encrypted, content_iv, created_at')
         .eq('conversation_id', conv.id)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       return {
         ...conv,
-        lastMessage: lastMsg ? decodeContent(lastMsg.content_encrypted) : null,
+        lastMessage: lastMsg ? decodeMessage(lastMsg.content_encrypted, lastMsg.content_iv) : null,
         lastMessageRole: lastMsg?.role,
       };
     })

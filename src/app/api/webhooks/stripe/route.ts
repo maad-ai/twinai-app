@@ -12,7 +12,6 @@ export async function POST(req: Request) {
   }
 
   let event;
-
   try {
     event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
@@ -21,69 +20,96 @@ export async function POST(req: Request) {
   }
 
   const supabase = createAdminClient();
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const obj = event.data.object as any;
 
-  switch (event.type) {
-    case 'checkout.session.completed': {
-      const subscriptionId = obj.subscription as string;
-      let fanId = obj.metadata?.fan_id;
-      let twinId = obj.metadata?.twin_id;
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const subscriptionId = obj.subscription as string;
+        let fanId = obj.metadata?.fan_id;
+        let twinId = obj.metadata?.twin_id;
+        let credits = parseInt(obj.metadata?.credits ?? '0', 10);
 
-      if (!fanId || !twinId) {
-        const sub = await stripe.subscriptions.retrieve(subscriptionId);
-        fanId = sub.metadata?.fan_id;
-        twinId = sub.metadata?.twin_id;
+        if (!fanId || !twinId || !credits) {
+          const sub = await stripe.subscriptions.retrieve(subscriptionId);
+          fanId = fanId || sub.metadata?.fan_id;
+          twinId = twinId || sub.metadata?.twin_id;
+          credits = credits || parseInt(sub.metadata?.credits ?? '300', 10);
+        }
+
+        if (fanId && twinId) {
+          await createSubscription(supabase, fanId, twinId, subscriptionId, credits || 300);
+        }
+        break;
       }
 
-      if (fanId && twinId) {
-        await createSubscription(supabase, fanId, twinId, subscriptionId);
+      case 'invoice.payment_succeeded': {
+        const subscriptionId = obj.subscription as string;
+        if (obj.billing_reason === 'subscription_cycle') {
+          // Reset credits to the subscription's tier total (not hardcoded)
+          const { data: sub } = await supabase
+            .from('subscriptions')
+            .select('credits_total')
+            .eq('stripe_subscription_id', subscriptionId)
+            .maybeSingle();
+
+          const resetTo = sub?.credits_total ?? 300;
+
+          const { error } = await supabase
+            .from('subscriptions')
+            .update({
+              credits_remaining: resetTo,
+              status: 'active',
+              current_period_start: new Date((obj.period_start ?? 0) * 1000).toISOString(),
+              current_period_end: new Date((obj.period_end ?? 0) * 1000).toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('stripe_subscription_id', subscriptionId);
+
+          if (error) {
+            console.error('Credit reset failed:', error);
+            return new Response('DB error', { status: 500 });
+          }
+        }
+        break;
       }
-      break;
-    }
 
-    case 'invoice.payment_succeeded': {
-      const subscriptionId = obj.subscription as string;
+      case 'customer.subscription.deleted': {
+        const { error } = await supabase
+          .from('subscriptions')
+          .update({ status: 'canceled', updated_at: new Date().toISOString() })
+          .eq('stripe_subscription_id', obj.id);
+        if (error) {
+          console.error('Sub cancel failed:', error);
+          return new Response('DB error', { status: 500 });
+        }
+        break;
+      }
 
-      if (obj.billing_reason === 'subscription_cycle') {
-        await supabase
+      case 'customer.subscription.updated': {
+        const status =
+          obj.status === 'past_due' ? 'past_due' :
+          obj.status === 'canceled' ? 'canceled' : 'active';
+
+        const { error } = await supabase
           .from('subscriptions')
           .update({
-            credits_remaining: 300,
-            status: 'active',
-            current_period_start: new Date((obj.period_start ?? 0) * 1000).toISOString(),
-            current_period_end: new Date((obj.period_end ?? 0) * 1000).toISOString(),
+            status,
+            current_period_end: new Date((obj.current_period_end ?? 0) * 1000).toISOString(),
             updated_at: new Date().toISOString(),
           })
-          .eq('stripe_subscription_id', subscriptionId);
+          .eq('stripe_subscription_id', obj.id);
+        if (error) {
+          console.error('Sub update failed:', error);
+          return new Response('DB error', { status: 500 });
+        }
+        break;
       }
-      break;
     }
-
-    case 'customer.subscription.deleted': {
-      await supabase
-        .from('subscriptions')
-        .update({ status: 'canceled', updated_at: new Date().toISOString() })
-        .eq('stripe_subscription_id', obj.id);
-      break;
-    }
-
-    case 'customer.subscription.updated': {
-      const status = obj.status === 'active' ? 'active' :
-                     obj.status === 'past_due' ? 'past_due' :
-                     obj.status === 'canceled' ? 'canceled' : 'active';
-
-      await supabase
-        .from('subscriptions')
-        .update({
-          status,
-          current_period_end: new Date(obj.current_period_end * 1000).toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('stripe_subscription_id', obj.id);
-      break;
-    }
+  } catch (err) {
+    console.error(`Webhook handler error (${event.type}):`, err);
+    return new Response('Handler error', { status: 500 });
   }
 
   return new Response('OK', { status: 200 });
@@ -93,29 +119,33 @@ async function createSubscription(
   supabase: ReturnType<typeof createAdminClient>,
   fanId: string,
   twinId: string,
-  stripeSubscriptionId: string
+  stripeSubscriptionId: string,
+  credits: number
 ) {
-  // Create subscription record
-  await supabase.from('subscriptions').upsert(
+  const { error: subError } = await supabase.from('subscriptions').upsert(
     {
       fan_id: fanId,
       twin_id: twinId,
       stripe_subscription_id: stripeSubscriptionId,
       status: 'active',
-      credits_remaining: 300,
-      credits_total: 300,
+      credits_remaining: credits,
+      credits_total: credits,
       current_period_start: new Date().toISOString(),
       current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     },
     { onConflict: 'fan_id,twin_id' }
   );
 
-  // Increment subscriber count
+  if (subError) {
+    console.error('Subscription upsert failed:', subError);
+    throw subError;
+  }
+
   const { data: twin } = await supabase
     .from('twins')
     .select('total_subscribers')
     .eq('id', twinId)
-    .single();
+    .maybeSingle();
 
   if (twin) {
     await supabase

@@ -1,6 +1,9 @@
 import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { stripe } from '@/lib/stripe/client';
+import { parseBody, subscribeSchema } from '@/lib/validators';
+import { validateTier, APP_URL } from '@/lib/constants';
+import { apiRateLimit, checkRateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,116 +14,121 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const blocked = await checkRateLimit(apiRateLimit, userId);
+  if (blocked) return blocked;
+
+  const { data: body, error: validationError } = await parseBody(req, subscribeSchema);
+  if (validationError) return validationError;
+
   const supabase = createAdminClient();
 
   const { data: profile } = await supabase
     .from('profiles')
     .select('id, email, stripe_customer_id')
     .eq('clerk_id', userId)
-    .single();
+    .maybeSingle();
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });
   }
 
-  const body = await req.json();
-  const { twinId, priceCents, credits } = body;
-
-  if (!twinId) {
-    return Response.json({ error: 'Twin ID required' }, { status: 400 });
-  }
-
   // Get twin
   const { data: twin } = await supabase
     .from('twins')
-    .select('id, name, monthly_price_cents, stripe_price_id, stripe_product_id, creator_id, settings')
-    .eq('id', twinId)
-    .single();
-
-  const selectedPrice = priceCents || twin?.monthly_price_cents || 1999;
-  const selectedCredits = credits || 300;
+    .select('id, name, slug, monthly_price_cents, stripe_product_id, creator_id, settings')
+    .eq('id', body.twinId)
+    .maybeSingle();
 
   if (!twin) {
     return Response.json({ error: 'Twin not found' }, { status: 404 });
   }
 
+  // SECURITY: validate the requested price against real tiers (prevents price manipulation)
+  const tier = validateTier(body.priceCents, twin.settings, twin.monthly_price_cents);
+  if (!tier) {
+    return Response.json(
+      { error: 'Invalid pricing tier', code: 'INVALID_TIER' },
+      { status: 400 }
+    );
+  }
+
   // Check if already subscribed
   const { data: existingSub } = await supabase
     .from('subscriptions')
-    .select('id, status')
+    .select('id')
     .eq('fan_id', profile.id)
-    .eq('twin_id', twinId)
+    .eq('twin_id', body.twinId)
     .eq('status', 'active')
-    .single();
+    .maybeSingle();
 
   if (existingSub) {
-    return Response.json({ error: 'Already subscribed' }, { status: 400 });
+    return Response.json({ error: 'Already subscribed', code: 'ALREADY_SUBSCRIBED' }, { status: 400 });
   }
 
-  // Get or create Stripe customer
-  let customerId = profile.stripe_customer_id;
+  try {
+    // Get or create Stripe customer
+    let customerId = profile.stripe_customer_id;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: profile.email,
+        metadata: { clerk_id: userId, profile_id: profile.id },
+      });
+      customerId = customer.id;
+      await supabase
+        .from('profiles')
+        .update({ stripe_customer_id: customerId })
+        .eq('id', profile.id);
+    }
 
-  if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: profile.email,
-      metadata: { clerk_id: userId, profile_id: profile.id },
-    });
-    customerId = customer.id;
-
-    await supabase
-      .from('profiles')
-      .update({ stripe_customer_id: customerId })
-      .eq('id', profile.id);
-  }
-
-  // Create Stripe product + price for this tier
-  let priceId: string | null = null;
-
-  {
-    // Create product
+    // Create product + price for the validated tier
     const product = await stripe.products.create({
-      name: `Chat with ${twin.name}`,
-      metadata: { twin_id: twin.id },
+      name: `Chat with ${twin.name} — ${tier.name}`,
+      metadata: { twin_id: twin.id, tier: tier.name },
     });
 
-    // Create price for selected tier
     const price = await stripe.prices.create({
       product: product.id,
-      unit_amount: selectedPrice,
+      unit_amount: tier.cents,
       currency: 'usd',
       recurring: { interval: 'month' },
     });
 
-    priceId = price.id;
-
-    // Save product to twin (price varies per tier so we don't cache it)
     await supabase
       .from('twins')
       .update({ stripe_product_id: product.id })
       .eq('id', twin.id);
-  }
 
-  // Create Checkout Session
-  const session = await stripe.checkout.sessions.create({
-    customer: customerId,
-    mode: 'subscription',
-    payment_method_types: ['card'],
-    line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.twiinn.ai'}/chat?subscribed=${twinId}`,
-    cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.twiinn.ai'}/explore/${twin.name.toLowerCase().replace(/\s+/g, '-')}`,
-    metadata: {
-      fan_id: profile.id,
-      twin_id: twin.id,
-    },
-    subscription_data: {
+    // Create Checkout Session — credits stored in metadata for webhook
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [{ price: price.id, quantity: 1 }],
+      success_url: `${APP_URL}/chat?subscribed=${twin.id}`,
+      cancel_url: `${APP_URL}/explore/${twin.slug}`,
       metadata: {
         fan_id: profile.id,
         twin_id: twin.id,
+        credits: String(tier.credits),
       },
-    },
-  });
+      subscription_data: {
+        metadata: {
+          fan_id: profile.id,
+          twin_id: twin.id,
+          credits: String(tier.credits),
+        },
+      },
+    });
 
-  return Response.json({ url: session.url });
+    if (!session.url) {
+      return Response.json({ error: 'Failed to create checkout session' }, { status: 500 });
+    }
+
+    return Response.json({ url: session.url });
+  } catch (err) {
+    console.error('Stripe checkout error:', err);
+    return Response.json({ error: 'Payment setup failed. Please try again.' }, { status: 500 });
+  }
 }
 
 // GET: list fan's active subscriptions
@@ -136,7 +144,7 @@ export async function GET() {
     .from('profiles')
     .select('id')
     .eq('clerk_id', userId)
-    .single();
+    .maybeSingle();
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });

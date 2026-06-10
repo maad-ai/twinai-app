@@ -1,5 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { parseBody, trainContentSchema } from '@/lib/validators';
+import { uploadRateLimit, checkRateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +18,7 @@ export async function GET() {
     .from('profiles')
     .select('id')
     .eq('clerk_id', userId)
-    .single();
+    .maybeSingle();
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });
@@ -26,7 +28,7 @@ export async function GET() {
     .from('twins')
     .select('id')
     .eq('creator_id', profile.id)
-    .single();
+    .maybeSingle();
 
   if (!twin) {
     return Response.json({ content: [] });
@@ -48,13 +50,19 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const blocked = await checkRateLimit(uploadRateLimit, userId);
+  if (blocked) return blocked;
+
+  const { data: body, error: validationError } = await parseBody(req, trainContentSchema);
+  if (validationError) return validationError;
+
   const supabase = createAdminClient();
 
   const { data: profile } = await supabase
     .from('profiles')
     .select('id')
     .eq('clerk_id', userId)
-    .single();
+    .maybeSingle();
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });
@@ -64,18 +72,13 @@ export async function POST(req: Request) {
     .from('twins')
     .select('id')
     .eq('creator_id', profile.id)
-    .single();
+    .maybeSingle();
 
   if (!twin) {
     return Response.json({ error: 'Twin not found' }, { status: 404 });
   }
 
-  const body = await req.json();
   const { sourceType, rawText, sourceUrl } = body;
-
-  if (!sourceType) {
-    return Response.json({ error: 'Source type required' }, { status: 400 });
-  }
 
   if (sourceType === 'text' && (!rawText || rawText.trim().length < 20)) {
     return Response.json({ error: 'Text must be at least 20 characters' }, { status: 400 });
@@ -92,7 +95,7 @@ export async function POST(req: Request) {
       status: 'pending',
     })
     .select()
-    .single();
+    .maybeSingle();
 
   if (insertError) {
     console.error('Insert error:', insertError);
@@ -154,7 +157,7 @@ export async function DELETE(req: Request) {
     .from('profiles')
     .select('id')
     .eq('clerk_id', userId)
-    .single();
+    .maybeSingle();
 
   if (!profile) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -164,7 +167,7 @@ export async function DELETE(req: Request) {
     .from('twins')
     .select('id')
     .eq('creator_id', profile.id)
-    .single();
+    .maybeSingle();
 
   if (!twin) {
     return Response.json({ error: 'Twin not found' }, { status: 404 });

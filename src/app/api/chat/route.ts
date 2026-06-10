@@ -1,32 +1,10 @@
 import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { streamChat } from '@/lib/ai/provider';
-
-function decodeContent(data: unknown): string {
-  // Handle JSON Buffer: {"type":"Buffer","data":[72,101,...]}
-  if (data && typeof data === 'object' && 'type' in (data as Record<string, unknown>) && (data as Record<string, unknown>).type === 'Buffer') {
-    const arr = (data as { data: number[] }).data;
-    return Buffer.from(arr).toString('utf-8');
-  }
-  // Handle hex string from Supabase: \x48656c6c6f
-  if (typeof data === 'string') {
-    if (data.startsWith('\\x')) {
-      return Buffer.from(data.slice(2), 'hex').toString('utf-8');
-    }
-    // Try parsing as JSON Buffer
-    try {
-      const parsed = JSON.parse(data);
-      if (parsed?.type === 'Buffer' && Array.isArray(parsed.data)) {
-        return Buffer.from(parsed.data).toString('utf-8');
-      }
-    } catch { /* not JSON */ }
-    return data;
-  }
-  if (Buffer.isBuffer(data)) {
-    return data.toString('utf-8');
-  }
-  return String(data);
-}
+import { encrypt, decodeMessage } from '@/lib/encryption';
+import { parseBody, sendMessageSchema } from '@/lib/validators';
+import { chatRateLimit, checkRateLimit } from '@/lib/rate-limit';
+import { CHAT_HISTORY_LIMIT, RAG_TOP_K } from '@/lib/constants';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -37,83 +15,64 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // Rate limit: 20 messages/min per user
+  const blocked = await checkRateLimit(chatRateLimit, userId);
+  if (blocked) return blocked;
+
+  const { data: body, error: validationError } = await parseBody(req, sendMessageSchema);
+  if (validationError) return validationError;
+
   const supabase = createAdminClient();
 
-  // Get fan profile
   const { data: profile } = await supabase
     .from('profiles')
     .select('id')
     .eq('clerk_id', userId)
-    .single();
+    .maybeSingle();
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });
   }
 
-  const body = await req.json();
-  const { twinId, message } = body;
-
-  if (!twinId || !message?.trim()) {
-    return Response.json({ error: 'Twin ID and message required' }, { status: 400 });
-  }
-
-  // Get twin
   const { data: twin } = await supabase
     .from('twins')
     .select('*')
-    .eq('id', twinId)
-    .single();
+    .eq('id', body.twinId)
+    .maybeSingle();
 
   if (!twin) {
     return Response.json({ error: 'Twin not found' }, { status: 404 });
   }
 
-  // Check if fan is the creator (creators can chat with their own twin for free)
+  // Creators can chat with their own twin for free (testing)
   const isCreator = twin.creator_id === profile.id;
 
-  // Check subscription + credits (skip for creators testing their own twin)
+  let activeSubscription: { id: string; credits_remaining: number } | null = null;
+
   if (!isCreator) {
     const { data: subscription } = await supabase
       .from('subscriptions')
       .select('id, credits_remaining, status')
       .eq('fan_id', profile.id)
-      .eq('twin_id', twinId)
+      .eq('twin_id', body.twinId)
       .eq('status', 'active')
-      .single();
+      .maybeSingle();
 
     if (!subscription) {
-      return Response.json({
-        error: 'Not subscribed',
-        code: 'NOT_SUBSCRIBED',
-        message: 'You need to subscribe to chat with this twin.',
-      }, { status: 403 });
+      return Response.json(
+        { error: 'Not subscribed', code: 'NOT_SUBSCRIBED', message: 'You need to subscribe to chat with this twin.' },
+        { status: 403 }
+      );
     }
 
     if (subscription.credits_remaining <= 0) {
-      return Response.json({
-        error: 'No credits',
-        code: 'NO_CREDITS',
-        message: 'You\'ve used all your messages this month. Buy a credit pack to continue.',
-        credits_remaining: 0,
-      }, { status: 403 });
+      return Response.json(
+        { error: 'No credits', code: 'NO_CREDITS', message: 'You\'ve used all your messages this month. Buy a credit pack to continue.', credits_remaining: 0 },
+        { status: 403 }
+      );
     }
 
-    // Deduct 1 credit
-    await supabase
-      .from('subscriptions')
-      .update({
-        credits_remaining: subscription.credits_remaining - 1,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', subscription.id);
-
-    // Log credit transaction
-    await supabase.from('credit_transactions').insert({
-      subscription_id: subscription.id,
-      type: 'message_sent',
-      amount: -1,
-      balance_after: subscription.credits_remaining - 1,
-    });
+    activeSubscription = subscription;
   }
 
   // Get or create conversation
@@ -121,18 +80,15 @@ export async function POST(req: Request) {
     .from('conversations')
     .select('id, message_count')
     .eq('fan_id', profile.id)
-    .eq('twin_id', twinId)
-    .single();
+    .eq('twin_id', body.twinId)
+    .maybeSingle();
 
   if (!conversation) {
     const { data: newConvo } = await supabase
       .from('conversations')
-      .insert({
-        fan_id: profile.id,
-        twin_id: twinId,
-      })
-      .select()
-      .single();
+      .insert({ fan_id: profile.id, twin_id: body.twinId })
+      .select('id, message_count')
+      .maybeSingle();
     conversation = newConvo;
   }
 
@@ -140,50 +96,61 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Failed to create conversation' }, { status: 500 });
   }
 
-  // Get training content for RAG context
+  // Deduct 1 credit AFTER we know the message will be processed (not for creators)
+  if (activeSubscription) {
+    await supabase
+      .from('subscriptions')
+      .update({ credits_remaining: activeSubscription.credits_remaining - 1, updated_at: new Date().toISOString() })
+      .eq('id', activeSubscription.id);
+
+    await supabase.from('credit_transactions').insert({
+      subscription_id: activeSubscription.id,
+      type: 'message_sent',
+      amount: -1,
+      balance_after: activeSubscription.credits_remaining - 1,
+    });
+  }
+
+  // RAG context (TODO Vague 3: vector search; for now top-K raw chunks)
   const { data: trainingContent } = await supabase
     .from('training_content')
     .select('raw_text')
-    .eq('twin_id', twinId)
+    .eq('twin_id', body.twinId)
     .eq('status', 'embedded')
-    .limit(5);
+    .limit(RAG_TOP_K);
 
-  const context = (trainingContent || [])
-    .map((c) => c.raw_text)
-    .filter(Boolean) as string[];
+  const context = (trainingContent || []).map((c) => c.raw_text).filter(Boolean) as string[];
 
-  // Get recent message history (last 10 messages)
+  // Recent message history (decrypt)
   const { data: recentMessages } = await supabase
     .from('messages')
-    .select('role, content_encrypted')
+    .select('role, content_encrypted, content_iv')
     .eq('conversation_id', conversation.id)
     .order('created_at', { ascending: false })
-    .limit(10);
+    .limit(CHAT_HISTORY_LIMIT);
 
-  // Build message history (messages are stored as plain text for now, encryption in next step)
   const history = (recentMessages || [])
     .reverse()
     .map((m) => ({
       role: m.role as 'user' | 'assistant',
-      content: decodeContent(m.content_encrypted),
+      content: decodeMessage(m.content_encrypted, m.content_iv),
     }));
 
-  // Add current message
-  history.push({ role: 'user', content: message.trim() });
+  history.push({ role: 'user', content: body.message });
 
-  // Save user message (store as hex-encoded text in BYTEA)
-  const userHex = '\\x' + Buffer.from(message.trim(), 'utf-8').toString('hex');
-  const placeholderIv = '\\x' + '0'.repeat(32);
+  // Save user message (encrypted)
+  const userEnc = encrypt(body.message);
   await supabase.from('messages').insert({
     conversation_id: conversation.id,
     role: 'user',
-    content_encrypted: userHex,
-    content_iv: placeholderIv,
+    content_encrypted: userEnc.encrypted,
+    content_iv: userEnc.iv,
   });
 
-  // Stream response
   const encoder = new TextEncoder();
   let fullResponse = '';
+  const convId = conversation.id;
+  const convCount = conversation.message_count || 0;
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -193,29 +160,24 @@ export async function POST(req: Request) {
           controller.enqueue(encoder.encode(chunk));
         }
 
-        // Save assistant response
-        const assistantHex = '\\x' + Buffer.from(fullResponse, 'utf-8').toString('hex');
+        // Save assistant response (encrypted)
+        const asstEnc = encrypt(fullResponse);
         await supabase.from('messages').insert({
-          conversation_id: conversation!.id,
+          conversation_id: convId,
           role: 'assistant',
-          content_encrypted: assistantHex,
-          content_iv: placeholderIv,
+          content_encrypted: asstEnc.encrypted,
+          content_iv: asstEnc.iv,
         });
 
-        // Update conversation
         await supabase
           .from('conversations')
-          .update({
-            last_message_at: new Date().toISOString(),
-            message_count: (conversation!.message_count || 0) + 2,
-          })
-          .eq('id', conversation!.id);
+          .update({ last_message_at: new Date().toISOString(), message_count: convCount + 2 })
+          .eq('id', convId);
 
-        // Update twin message count
         await supabase
           .from('twins')
-          .update({ total_messages: twin.total_messages + 2 })
-          .eq('id', twinId);
+          .update({ total_messages: (twin.total_messages || 0) + 2 })
+          .eq('id', body.twinId);
 
         controller.close();
       } catch (error) {
@@ -248,7 +210,7 @@ export async function GET() {
     .from('profiles')
     .select('id')
     .eq('clerk_id', userId)
-    .single();
+    .maybeSingle();
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });

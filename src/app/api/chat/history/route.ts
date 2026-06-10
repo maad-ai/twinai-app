@@ -1,32 +1,8 @@
 import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { decodeMessage } from '@/lib/encryption';
 
 export const dynamic = 'force-dynamic';
-
-function decodeContent(data: unknown): string {
-  // Handle JSON Buffer: {"type":"Buffer","data":[72,101,...]}
-  if (data && typeof data === 'object' && 'type' in (data as Record<string, unknown>) && (data as Record<string, unknown>).type === 'Buffer') {
-    const arr = (data as { data: number[] }).data;
-    return Buffer.from(arr).toString('utf-8');
-  }
-  // Handle hex string: \x48656c6c6f
-  if (typeof data === 'string') {
-    if (data.startsWith('\\x')) {
-      return Buffer.from(data.slice(2), 'hex').toString('utf-8');
-    }
-    try {
-      const parsed = JSON.parse(data);
-      if (parsed?.type === 'Buffer' && Array.isArray(parsed.data)) {
-        return Buffer.from(parsed.data).toString('utf-8');
-      }
-    } catch { /* not JSON */ }
-    return data;
-  }
-  if (Buffer.isBuffer(data)) {
-    return data.toString('utf-8');
-  }
-  return String(data);
-}
 
 export async function GET(req: Request) {
   const { userId } = await auth();
@@ -47,7 +23,7 @@ export async function GET(req: Request) {
     .from('profiles')
     .select('id')
     .eq('clerk_id', userId)
-    .single();
+    .maybeSingle();
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });
@@ -59,16 +35,15 @@ export async function GET(req: Request) {
     .select('id, twin_id')
     .eq('id', conversationId)
     .eq('fan_id', profile.id)
-    .single();
+    .maybeSingle();
 
   if (!conversation) {
     return Response.json({ error: 'Conversation not found' }, { status: 404 });
   }
 
-  // Get messages
   const { data: messages } = await supabase
     .from('messages')
-    .select('id, role, content_encrypted, created_at')
+    .select('id, role, content_encrypted, content_iv, created_at')
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true })
     .limit(100);
@@ -76,7 +51,7 @@ export async function GET(req: Request) {
   const decryptedMessages = (messages || []).map((m) => ({
     id: m.id,
     role: m.role,
-    content: decodeContent(m.content_encrypted),
+    content: decodeMessage(m.content_encrypted, m.content_iv),
     created_at: m.created_at,
   }));
 

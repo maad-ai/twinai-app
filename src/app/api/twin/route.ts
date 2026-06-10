@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     .from('profiles')
     .select('id, role')
     .eq('clerk_id', userId)
-    .single();
+    .maybeSingle();
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     .from('twins')
     .select('id')
     .eq('slug', slug)
-    .single();
+    .maybeSingle();
 
   const finalSlug = existing ? `${slug}-${Date.now().toString(36)}` : slug;
 
@@ -92,7 +92,7 @@ ${blockedTopics?.length ? `- NEVER discuss these topics: ${blockedTopics.join(',
       status: 'draft',
     })
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error('Twin creation error:', error);
@@ -120,7 +120,7 @@ export async function GET() {
     .from('profiles')
     .select('id')
     .eq('clerk_id', userId)
-    .single();
+    .maybeSingle();
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });
@@ -130,7 +130,7 @@ export async function GET() {
     .from('twins')
     .select('*')
     .eq('creator_id', profile.id)
-    .single();
+    .maybeSingle();
 
   return Response.json({ twin: twin || null });
 }

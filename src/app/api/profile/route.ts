@@ -40,7 +40,7 @@ export async function GET() {
     .from('profiles')
     .select('*')
     .eq('clerk_id', userId)
-    .single();
+    .maybeSingle();
 
   if (error || !data) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });

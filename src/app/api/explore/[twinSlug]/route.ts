@@ -13,7 +13,7 @@ export async function GET(
     .from('twins')
     .select('id, name, slug, tagline, niche, monthly_price_cents, total_subscribers, total_messages, settings, status')
     .eq('slug', twinSlug)
-    .single();
+    .maybeSingle();
 
   if (!twin) {
     return Response.json({ error: 'Twin not found' }, { status: 404 });
