@@ -1,8 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk';
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+function getClient() {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) {
+    console.error('ANTHROPIC_API_KEY is missing! Check .env.local');
+    throw new Error('Missing ANTHROPIC_API_KEY');
+  }
+  return new Anthropic({ apiKey: key });
+}
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -22,8 +27,8 @@ export async function* streamChat(
     fullSystem += `\n\nUse the above content to inform your answers. Stay in character.`;
   }
 
-  const stream = anthropic.messages.stream({
-    model: 'claude-sonnet-4-20250514',
+  const stream = getClient().messages.stream({
+    model: 'claude-sonnet-4-latest',
     max_tokens: 1024,
     system: fullSystem,
     messages: messages.map((m) => ({

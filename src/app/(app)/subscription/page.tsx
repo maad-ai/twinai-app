@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Sparkles, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 
@@ -20,8 +21,40 @@ type Subscription = {
 };
 
 export default function SubscriptionsPage() {
+  const router = useRouter();
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
+
+  async function startChat(twinId: string) {
+    // Check if conversation already exists
+    const res = await fetch('/api/chat');
+    if (res.ok) {
+      const data = await res.json();
+      const existing = data.conversations?.find((c: { twin_id: string }) => c.twin_id === twinId);
+      if (existing) {
+        router.push(`/chat/${existing.id}`);
+        return;
+      }
+    }
+
+    // Create new conversation by sending first message
+    const chatRes = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ twinId, message: 'Hey!' }),
+    });
+
+    if (chatRes.ok) {
+      const convRes = await fetch('/api/chat');
+      if (convRes.ok) {
+        const convData = await convRes.json();
+        const conv = convData.conversations?.find((c: { twin_id: string }) => c.twin_id === twinId);
+        if (conv) {
+          router.push(`/chat/${conv.id}`);
+        }
+      }
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -93,12 +126,12 @@ export default function SubscriptionsPage() {
                     ${(sub.twins?.monthly_price_cents / 100).toFixed(2)}/mo
                   </span>
                 </div>
-                <Link
-                  href={`/explore/${sub.twins?.slug}`}
+                <button
+                  onClick={() => startChat(sub.twins?.id)}
                   className="text-[#A855F7] font-500 hover:underline flex items-center gap-1"
                 >
                   <MessageCircle className="w-3.5 h-3.5" /> Chat
-                </Link>
+                </button>
               </div>
             </div>
           ))}
