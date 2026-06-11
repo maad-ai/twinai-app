@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, ArrowLeft, Sparkles, Check } from 'lucide-react';
+import { formatPrice } from '@/lib/format';
 
 const NICHES = [
   'Fitness', 'Finance', 'Beauty', 'Gaming', 'Cooking',
@@ -259,8 +260,6 @@ export default function OnboardingPage() {
 
             <div className="space-y-6">
               {TIER_NAMES.map((tierName, i) => {
-                const priceDollars = (prices[i] / 100).toFixed(2);
-                const earnings = ((prices[i] * 0.85) / 100).toFixed(2);
                 const maxCents = i === 2 ? 19999 : (prices[i + 1] || 19999) - 100;
 
                 return (
@@ -277,7 +276,7 @@ export default function OnboardingPage() {
                         <span className="text-sm text-[#94A3B8]">{credits[i]} messages/mo</span>
                       </div>
                       <span className="font-display font-800 text-2xl text-white">
-                        ${priceDollars}
+                        {formatPrice(prices[i])}
                       </span>
                     </div>
 
@@ -297,8 +296,8 @@ export default function OnboardingPage() {
                     />
 
                     <div className="flex justify-between text-xs">
-                      <span className="text-[#94A3B8]">Min ${(MIN_PRICES[i] / 100).toFixed(2)}</span>
-                      <span className="text-[#84FF57] font-500">You earn ~${earnings}/sub</span>
+                      <span className="text-[#94A3B8]">Min {formatPrice(MIN_PRICES[i])}</span>
+                      <span className="text-[#84FF57] font-500">You earn ~{formatPrice(prices[i] * 0.85)}/sub</span>
                     </div>
                   </div>
                 );

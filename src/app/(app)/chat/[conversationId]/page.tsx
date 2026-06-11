@@ -4,18 +4,13 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { Send, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-
-type Message = {
-  id?: string;
-  role: 'user' | 'assistant';
-  content: string;
-  streaming?: boolean;
-};
+import type { ChatMessage } from '@/types';
+import { Avatar } from '@/components/ui/Avatar';
 
 export default function ChatPage() {
   const params = useParams();
   const conversationId = params.conversationId as string;
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [twinId, setTwinId] = useState('');
@@ -183,9 +178,7 @@ export default function ChatPage() {
         <Link href="/chat" className="text-[#94A3B8] hover:text-[#0F0F23] transition-colors md:hidden">
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#A855F7] to-[#00D4FF] flex items-center justify-center flex-shrink-0">
-          <span className="text-white text-sm font-700">{twinName.charAt(0)}</span>
-        </div>
+        <Avatar name={twinName} size="md" />
         <div className="flex-1">
           <p className="font-display font-700 text-sm text-[#0F0F23]">{twinName}</p>
           <div className="flex items-center gap-1.5">
@@ -231,9 +224,7 @@ export default function ChatPage() {
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             {msg.role === 'assistant' && (
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#A855F7] to-[#00D4FF] flex items-center justify-center flex-shrink-0 mr-2 mt-1">
-                <span className="text-white text-[10px] font-700">{twinName.charAt(0)}</span>
-              </div>
+              <Avatar name={twinName} size="sm" className="mr-2 mt-1" />
             )}
             <div
               className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${

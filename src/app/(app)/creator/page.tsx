@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { LayoutDashboard, Users, MessageCircle, DollarSign, Settings, Eye } from 'lucide-react';
 import Link from 'next/link';
+import { formatPrice } from '@/lib/format';
 
 export const metadata = { title: 'Creator Dashboard' };
 
@@ -92,7 +93,7 @@ export default async function CreatorDashboardPage() {
             </div>
             <div>
               <p className="text-xs text-[#94A3B8] uppercase tracking-wider mb-1">Price</p>
-              <p className="font-600 text-[#0F0F23]">${(twin.monthly_price_cents / 100).toFixed(2)}/mo</p>
+              <p className="font-600 text-[#0F0F23]">{formatPrice(twin.monthly_price_cents)}/mo</p>
             </div>
             <div>
               <p className="text-xs text-[#94A3B8] uppercase tracking-wider mb-1">Slug</p>

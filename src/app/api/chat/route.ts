@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getProfileByClerkId } from '@/lib/db';
 import { streamChat } from '@/lib/ai/provider';
 import { encrypt, decodeMessage } from '@/lib/encryption';
 import { parseBody, sendMessageSchema } from '@/lib/validators';
@@ -24,11 +25,7 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient();
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('clerk_id', userId)
-    .maybeSingle();
+  const profile = await getProfileByClerkId(supabase, userId);
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });
@@ -206,11 +203,7 @@ export async function GET() {
 
   const supabase = createAdminClient();
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('clerk_id', userId)
-    .maybeSingle();
+  const profile = await getProfileByClerkId(supabase, userId);
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });

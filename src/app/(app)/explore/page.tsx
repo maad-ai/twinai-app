@@ -1,6 +1,8 @@
 import { Compass } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import Link from 'next/link';
+import { Avatar } from '@/components/ui/Avatar';
+import { formatPrice } from '@/lib/format';
 
 export const metadata = { title: 'Explore' };
 
@@ -53,9 +55,7 @@ export default async function ExplorePage() {
               className="card rounded-2xl p-6 hover:border-[#A855F7]/20 transition-all block group"
             >
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#A855F7] to-[#00D4FF] flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-lg font-800">{twin.name.charAt(0)}</span>
-                </div>
+                <Avatar name={twin.name} size="lg" />
                 <div className="min-w-0">
                   <p className="font-display font-700 text-[#0F0F23] truncate group-hover:text-[#A855F7] transition-colors">
                     {twin.name}
@@ -70,7 +70,7 @@ export default async function ExplorePage() {
 
               <div className="flex items-center justify-between pt-3 border-t border-black/5">
                 <span className="text-sm font-600 text-[#0F0F23]">
-                  ${(twin.monthly_price_cents / 100).toFixed(2)}/mo
+                  {formatPrice(twin.monthly_price_cents)}/mo
                 </span>
                 <span className="text-xs text-[#94A3B8]">
                   {twin.total_subscribers} subscribers

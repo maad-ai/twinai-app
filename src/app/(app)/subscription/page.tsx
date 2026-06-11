@@ -4,21 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sparkles, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
-
-type Subscription = {
-  id: string;
-  status: string;
-  credits_remaining: number;
-  credits_total: number;
-  current_period_end: string;
-  twins: {
-    id: string;
-    name: string;
-    slug: string;
-    niche: string;
-    monthly_price_cents: number;
-  };
-};
+import type { Subscription } from '@/types';
+import { Avatar } from '@/components/ui/Avatar';
+import { formatPrice } from '@/lib/format';
 
 export default function SubscriptionsPage() {
   const router = useRouter();
@@ -102,9 +90,7 @@ export default function SubscriptionsPage() {
             <div key={sub.id} className="card rounded-xl p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#A855F7] to-[#00D4FF] flex items-center justify-center">
-                    <span className="text-white font-700">{sub.twins?.name?.charAt(0)}</span>
-                  </div>
+                  <Avatar name={sub.twins?.name || ''} size="md" />
                   <div>
                     <p className="font-display font-700 text-[#0F0F23]">{sub.twins?.name}</p>
                     <p className="text-xs text-[#94A3B8]">{sub.twins?.niche}</p>
@@ -123,7 +109,7 @@ export default function SubscriptionsPage() {
                     <span className="font-600 text-[#0F0F23]">{sub.credits_remaining}</span>/{sub.credits_total} credits
                   </span>
                   <span className="text-[#94A3B8]">
-                    ${(sub.twins?.monthly_price_cents / 100).toFixed(2)}/mo
+                    {formatPrice(sub.twins?.monthly_price_cents)}/mo
                   </span>
                 </div>
                 <button

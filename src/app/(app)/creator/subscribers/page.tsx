@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Users } from 'lucide-react';
+import { Avatar } from '@/components/ui/Avatar';
 
 export const metadata = { title: 'Subscribers' };
 
@@ -63,9 +64,7 @@ export default async function SubscribersPage() {
             const fan = sub.profiles as unknown as { display_name: string; avatar_url: string | null } | null;
             return (
               <div key={sub.id} className="card rounded-xl p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#F1F5F9] flex items-center justify-center flex-shrink-0">
-                  <span className="text-sm font-700 text-[#94A3B8]">{fan?.display_name?.charAt(0) || '?'}</span>
-                </div>
+                <Avatar name={fan?.display_name || '?'} size="md" variant="neutral" />
                 <div className="flex-1">
                   <p className="font-600 text-sm text-[#0F0F23]">{fan?.display_name || 'Anonymous'}</p>
                   <p className="text-xs text-[#94A3B8]">

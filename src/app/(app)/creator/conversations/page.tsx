@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { decodeMessage } from '@/lib/encryption';
 import { MessageCircle, Flag, Shield } from 'lucide-react';
 import Link from 'next/link';
+import { Avatar } from '@/components/ui/Avatar';
+import { timeAgo } from '@/lib/format';
 
 export const metadata = { title: 'Conversations' };
 
@@ -65,16 +67,6 @@ export default async function CreatorConversationsPage() {
     })
   );
 
-  function timeAgo(dateStr: string) {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h`;
-    return `${Math.floor(hrs / 24)}d`;
-  }
-
   return (
     <div className="p-6 md:p-8 max-w-3xl">
       <div className="flex items-center gap-3 mb-2">
@@ -104,9 +96,7 @@ export default async function CreatorConversationsPage() {
                   conv.flagged ? 'border-[#FF6B6B]/30 bg-[#FF6B6B]/5' : ''
                 }`}
               >
-                <div className="w-10 h-10 rounded-full bg-[#F1F5F9] flex items-center justify-center flex-shrink-0">
-                  <span className="text-sm font-700 text-[#94A3B8]">{fanName.charAt(0)}</span>
-                </div>
+                <Avatar name={fanName} size="md" variant="neutral" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-600 text-sm text-[#0F0F23]">{fanName}</p>

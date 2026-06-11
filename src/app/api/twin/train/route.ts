@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getProfileByClerkId, getCreatorTwin } from '@/lib/db';
 import { parseBody, trainContentSchema } from '@/lib/validators';
 import { uploadRateLimit, checkRateLimit } from '@/lib/rate-limit';
 
@@ -14,21 +15,13 @@ export async function GET() {
 
   const supabase = createAdminClient();
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('clerk_id', userId)
-    .maybeSingle();
+  const profile = await getProfileByClerkId(supabase, userId);
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });
   }
 
-  const { data: twin } = await supabase
-    .from('twins')
-    .select('id')
-    .eq('creator_id', profile.id)
-    .maybeSingle();
+  const twin = await getCreatorTwin(supabase, profile.id);
 
   if (!twin) {
     return Response.json({ content: [] });
@@ -58,21 +51,13 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient();
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('clerk_id', userId)
-    .maybeSingle();
+  const profile = await getProfileByClerkId(supabase, userId);
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });
   }
 
-  const { data: twin } = await supabase
-    .from('twins')
-    .select('id')
-    .eq('creator_id', profile.id)
-    .maybeSingle();
+  const twin = await getCreatorTwin(supabase, profile.id);
 
   if (!twin) {
     return Response.json({ error: 'Twin not found' }, { status: 404 });
@@ -153,21 +138,13 @@ export async function DELETE(req: Request) {
   const supabase = createAdminClient();
 
   // Verify ownership
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('clerk_id', userId)
-    .maybeSingle();
+  const profile = await getProfileByClerkId(supabase, userId);
 
   if (!profile) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { data: twin } = await supabase
-    .from('twins')
-    .select('id')
-    .eq('creator_id', profile.id)
-    .maybeSingle();
+  const twin = await getCreatorTwin(supabase, profile.id);
 
   if (!twin) {
     return Response.json({ error: 'Twin not found' }, { status: 404 });

@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getProfileByClerkId } from '@/lib/db';
 import { stripe } from '@/lib/stripe/client';
 import { parseBody, subscribeSchema } from '@/lib/validators';
 import { validateTier, APP_URL } from '@/lib/constants';
@@ -22,11 +23,7 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient();
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, email, stripe_customer_id')
-    .eq('clerk_id', userId)
-    .maybeSingle();
+  const profile = await getProfileByClerkId(supabase, userId, 'id, email, stripe_customer_id');
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });
@@ -140,11 +137,7 @@ export async function GET() {
 
   const supabase = createAdminClient();
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('clerk_id', userId)
-    .maybeSingle();
+  const profile = await getProfileByClerkId(supabase, userId);
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });

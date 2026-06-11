@@ -3,21 +3,12 @@
 import { useState, useEffect } from 'react';
 import { MessageCircle } from 'lucide-react';
 import Link from 'next/link';
-
-type Conversation = {
-  id: string;
-  last_message_at: string;
-  message_count: number;
-  twin_id: string;
-  twins: {
-    name: string;
-    slug: string;
-    niche: string;
-  };
-};
+import type { ConversationSummary } from '@/types';
+import { Avatar } from '@/components/ui/Avatar';
+import { timeAgo } from '@/lib/format';
 
 export default function ConversationsPage() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -31,17 +22,6 @@ export default function ConversationsPage() {
     }
     load();
   }, []);
-
-  function timeAgo(dateStr: string) {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    const days = Math.floor(hrs / 24);
-    return `${days}d ago`;
-  }
 
   return (
     <div className="p-6 md:p-8 max-w-2xl">
@@ -84,14 +64,12 @@ export default function ConversationsPage() {
               href={`/chat/${conv.id}`}
               className="card rounded-xl p-4 flex items-center gap-3 hover:border-[#A855F7]/20 transition-all block"
             >
-              <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#A855F7] to-[#00D4FF] flex items-center justify-center flex-shrink-0">
-                <span className="text-white font-700">{conv.twins?.name?.charAt(0) || '?'}</span>
-              </div>
+              <Avatar name={conv.twins?.name || '?'} size="md" />
               <div className="flex-1 min-w-0">
                 <p className="font-display font-700 text-[#0F0F23]">{conv.twins?.name || 'Twin'}</p>
                 <p className="text-xs text-[#94A3B8]">{conv.twins?.niche} — {conv.message_count} messages</p>
               </div>
-              <span className="text-xs text-[#94A3B8] flex-shrink-0">{timeAgo(conv.last_message_at)}</span>
+              <span className="text-xs text-[#94A3B8] flex-shrink-0">{timeAgo(conv.last_message_at, true)}</span>
             </Link>
           ))}
         </div>

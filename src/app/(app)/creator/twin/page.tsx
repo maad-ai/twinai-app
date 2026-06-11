@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Sparkles, Upload, Eye, Settings } from 'lucide-react';
 import Link from 'next/link';
+import { formatPrice } from '@/lib/format';
 
 export const metadata = { title: 'My Twin' };
 
@@ -63,7 +64,7 @@ export default async function TwinPage() {
           </div>
           <div>
             <p className="text-xs text-[#94A3B8] uppercase tracking-wider mb-1">Price</p>
-            <p className="font-600 text-[#0F0F23] text-lg">${(twin.monthly_price_cents / 100).toFixed(2)}/mo</p>
+            <p className="font-600 text-[#0F0F23] text-lg">{formatPrice(twin.monthly_price_cents)}/mo</p>
           </div>
           <div>
             <p className="text-xs text-[#94A3B8] uppercase tracking-wider mb-1">Training Content</p>

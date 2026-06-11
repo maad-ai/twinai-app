@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getProfileByClerkId } from '@/lib/db';
 import { decodeMessage } from '@/lib/encryption';
 
 export const dynamic = 'force-dynamic';
@@ -19,11 +20,7 @@ export async function GET(req: Request) {
 
   const supabase = createAdminClient();
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('clerk_id', userId)
-    .maybeSingle();
+  const profile = await getProfileByClerkId(supabase, userId);
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });

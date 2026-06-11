@@ -1,5 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getProfileByClerkId, getCreatorTwin } from '@/lib/db';
+import { parseBody, createTwinSchema } from '@/lib/validators';
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -10,22 +12,16 @@ export async function POST(req: Request) {
   const supabase = createAdminClient();
 
   // Get profile
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, role')
-    .eq('clerk_id', userId)
-    .maybeSingle();
+  const profile = await getProfileByClerkId(supabase, userId, 'id, role');
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });
   }
 
-  const body = await req.json();
-  const { name, tagline, niche, personality, blockedTopics, monthlyPriceCents, creditsPerMonth } = body;
+  const { data: body, error: validationError } = await parseBody(req, createTwinSchema);
+  if (validationError) return validationError;
 
-  if (!name || !niche) {
-    return Response.json({ error: 'Name and niche are required' }, { status: 400 });
-  }
+  const { name, tagline, niche, personality, blockedTopics, monthlyPriceCents, creditsPerMonth } = body;
 
   // Generate slug from name
   const slug = name
@@ -116,21 +112,13 @@ export async function GET() {
 
   const supabase = createAdminClient();
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('clerk_id', userId)
-    .maybeSingle();
+  const profile = await getProfileByClerkId(supabase, userId);
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });
   }
 
-  const { data: twin } = await supabase
-    .from('twins')
-    .select('*')
-    .eq('creator_id', profile.id)
-    .maybeSingle();
+  const twin = await getCreatorTwin(supabase, profile.id, '*');
 
   return Response.json({ twin: twin || null });
 }

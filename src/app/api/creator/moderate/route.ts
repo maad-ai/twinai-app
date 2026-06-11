@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getProfileByClerkId } from '@/lib/db';
 import { decodeMessage } from '@/lib/encryption';
 import { parseBody, moderateSchema } from '@/lib/validators';
 
@@ -16,7 +17,7 @@ export async function GET(req: Request) {
 
   const supabase = createAdminClient();
 
-  const { data: profile } = await supabase.from('profiles').select('id').eq('clerk_id', userId).maybeSingle();
+  const profile = await getProfileByClerkId(supabase, userId);
   if (!profile) return Response.json({ error: 'Not found' }, { status: 404 });
 
   // Verify creator owns the twin in this conversation
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient();
 
-  const { data: profile } = await supabase.from('profiles').select('id').eq('clerk_id', userId).maybeSingle();
+  const profile = await getProfileByClerkId(supabase, userId);
   if (!profile) return Response.json({ error: 'Not found' }, { status: 404 });
 
   // Verify ownership

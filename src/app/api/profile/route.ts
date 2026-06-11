@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getProfileByClerkId } from '@/lib/db';
 
 export async function PATCH(req: Request) {
   const { userId } = await auth();
@@ -36,13 +37,9 @@ export async function GET() {
 
   const supabase = createAdminClient();
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('clerk_id', userId)
-    .maybeSingle();
+  const data = await getProfileByClerkId(supabase, userId, '*');
 
-  if (error || !data) {
+  if (!data) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });
   }
 

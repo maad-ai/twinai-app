@@ -3,21 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { MessageCircle, Users, Sparkles, Check } from 'lucide-react';
-
-type Twin = {
-  id: string;
-  name: string;
-  slug: string;
-  tagline: string;
-  niche: string;
-  monthly_price_cents: number;
-  total_subscribers: number;
-  total_messages: number;
-  settings: {
-    welcome_message?: string;
-    pricing_tiers?: { cents: number; credits: number; name: string }[];
-  };
-};
+import type { Twin } from '@/types';
+import { Avatar } from '@/components/ui/Avatar';
+import { formatPrice } from '@/lib/format';
 
 const DEFAULT_TIERS = [
   { cents: 999, credits: 100, name: 'Basic' },
@@ -116,9 +104,7 @@ export default function TwinProfilePage() {
     <div className="p-6 md:p-8 max-w-lg mx-auto">
       {/* Profile header */}
       <div className="text-center mb-8">
-        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#A855F7] to-[#00D4FF] flex items-center justify-center mx-auto mb-4">
-          <span className="text-white text-3xl font-800">{twin.name.charAt(0)}</span>
-        </div>
+        <Avatar name={twin.name} size="xl" className="mx-auto mb-4" />
         <h1 className="font-display font-800 text-2xl text-[#0F0F23] mb-1">{twin.name}</h1>
         <p className="text-sm text-[#A855F7] font-500 mb-2">{twin.niche}</p>
         {twin.tagline && (
@@ -171,7 +157,7 @@ export default function TwinProfilePage() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-display font-800 text-xl text-[#0F0F23]">
-                  ${(tier.cents / 100).toFixed(2)}
+                  {formatPrice(tier.cents)}
                 </span>
                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                   selectedTier === i ? 'border-[#A855F7] bg-[#A855F7]' : 'border-black/10'
@@ -194,7 +180,7 @@ export default function TwinProfilePage() {
           'Redirecting to checkout...'
         ) : (
           <>
-            <Sparkles className="w-4 h-4" /> Subscribe — ${(tiers[selectedTier].cents / 100).toFixed(2)}/mo
+            <Sparkles className="w-4 h-4" /> Subscribe — {formatPrice(tiers[selectedTier].cents)}/mo
           </>
         )}
       </button>
