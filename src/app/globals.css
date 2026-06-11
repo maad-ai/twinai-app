@@ -13,6 +13,13 @@
   --color-dark-mid: #1A1A3E;
   --color-off-white: #F8FAFC;
   --color-gray-muted: #94A3B8;
+
+  /* Tailwind v4 does not ship bare numeric font-weight utilities —
+     these tokens make the font-500…font-800 classes compile. */
+  --font-weight-500: 500;
+  --font-weight-600: 600;
+  --font-weight-700: 700;
+  --font-weight-800: 800;
 }
 
 *,
