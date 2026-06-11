@@ -4,6 +4,9 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/api/webhooks(.*)',
+  // Public creator share pages (twiinn.ai/@handle → app) + their OG images
+  '/@(.*)',
+  '/api/og/(.*)',
 ]);
 
 export default clerkMiddleware(async (auth, request) => {

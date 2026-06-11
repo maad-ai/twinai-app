@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { LayoutDashboard, Users, MessageCircle, DollarSign, Settings, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { formatPrice } from '@/lib/format';
+import { ShareTwinLink } from '@/components/creator/ShareTwinLink';
 
 export const metadata = { title: 'Creator Dashboard' };
 
@@ -49,6 +50,9 @@ export default async function CreatorDashboardPage() {
           </span>
         )}
       </div>
+
+      {/* Shareable link — the bio-link moment */}
+      {twin && <ShareTwinLink slug={twin.slug} name={twin.name} />}
 
       {/* Stats */}
       <div className="grid sm:grid-cols-3 gap-4 mb-8">
@@ -96,8 +100,15 @@ export default async function CreatorDashboardPage() {
               <p className="font-600 text-[#0F0F23]">{formatPrice(twin.monthly_price_cents)}/mo</p>
             </div>
             <div>
-              <p className="text-xs text-[#94A3B8] uppercase tracking-wider mb-1">Slug</p>
-              <p className="font-500 text-[#94A3B8]">twiinn.ai/twin/{twin.slug}</p>
+              <p className="text-xs text-[#94A3B8] uppercase tracking-wider mb-1">Public page</p>
+              <a
+                href={`/@${twin.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-500 text-[#A855F7] hover:underline"
+              >
+                twiinn.ai/@{twin.slug}
+              </a>
             </div>
           </div>
 
