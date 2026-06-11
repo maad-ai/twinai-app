@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sparkles, MessageCircle } from 'lucide-react';
+import { Sparkles, MessageCircle, XCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import type { Subscription } from '@/types';
 import { Avatar } from '@/components/ui/Avatar';
@@ -12,6 +12,20 @@ export default function SubscriptionsPage() {
   const router = useRouter();
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
+
+  async function loadSubs() {
+    const res = await fetch('/api/subscription');
+    if (res.ok) {
+      const data = await res.json();
+      setSubs(data.subscriptions || []);
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadSubs();
+  }, []);
 
   async function startChat(twinId: string) {
     // Check if conversation already exists
@@ -44,17 +58,31 @@ export default function SubscriptionsPage() {
     }
   }
 
-  useEffect(() => {
-    async function load() {
-      const res = await fetch('/api/subscription');
+  async function cancelSubscription(sub: Subscription) {
+    const confirmed = window.confirm(
+      `Cancel your subscription to ${sub.twins?.name}?\n\nYou'll keep access until the end of your billing period, and your conversation history stays forever.`
+    );
+    if (!confirmed) return;
+
+    setCancelingId(sub.id);
+    try {
+      const res = await fetch('/api/subscription/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscriptionId: sub.id }),
+      });
       if (res.ok) {
-        const data = await res.json();
-        setSubs(data.subscriptions || []);
+        await loadSubs();
       }
-      setLoading(false);
+    } finally {
+      setCancelingId(null);
     }
-    load();
-  }, []);
+  }
+
+  function endDate(dateStr: string) {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
 
   return (
     <div className="p-6 md:p-8 max-w-2xl">
@@ -96,11 +124,17 @@ export default function SubscriptionsPage() {
                     <p className="text-xs text-[#94A3B8]">{sub.twins?.niche}</p>
                   </div>
                 </div>
-                <span className={`text-xs font-600 uppercase tracking-wider px-2.5 py-1 rounded-full ${
-                  sub.status === 'active' ? 'bg-[#84FF57]/20 text-[#22C55E]' : 'bg-[#FF6B6B]/20 text-[#FF6B6B]'
-                }`}>
-                  {sub.status}
-                </span>
+                {sub.cancel_at_period_end && sub.status === 'active' ? (
+                  <span className="text-xs font-600 uppercase tracking-wider px-2.5 py-1 rounded-full bg-[#FBBF24]/20 text-[#D97706]">
+                    Ends {endDate(sub.current_period_end)}
+                  </span>
+                ) : (
+                  <span className={`text-xs font-600 uppercase tracking-wider px-2.5 py-1 rounded-full ${
+                    sub.status === 'active' ? 'bg-[#84FF57]/20 text-[#22C55E]' : 'bg-[#FF6B6B]/20 text-[#FF6B6B]'
+                  }`}>
+                    {sub.status}
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center justify-between text-sm">
@@ -112,13 +146,45 @@ export default function SubscriptionsPage() {
                     {formatPrice(sub.twins?.monthly_price_cents)}/mo
                   </span>
                 </div>
-                <button
-                  onClick={() => startChat(sub.twins?.id)}
-                  className="text-[#A855F7] font-500 hover:underline flex items-center gap-1"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" /> Chat
-                </button>
+                <div className="flex items-center gap-4">
+                  {sub.status === 'active' && !sub.cancel_at_period_end && (
+                    <button
+                      onClick={() => cancelSubscription(sub)}
+                      disabled={cancelingId === sub.id}
+                      className="text-[#94A3B8] hover:text-[#FF6B6B] font-500 flex items-center gap-1 transition-colors disabled:opacity-50"
+                    >
+                      {cancelingId === sub.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <XCircle className="w-3.5 h-3.5" />
+                      )}
+                      Cancel
+                    </button>
+                  )}
+                  {sub.status === 'active' && (
+                    <button
+                      onClick={() => startChat(sub.twins?.id)}
+                      className="text-[#A855F7] font-500 hover:underline flex items-center gap-1"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" /> Chat
+                    </button>
+                  )}
+                  {sub.status === 'canceled' && (
+                    <Link
+                      href="/chat"
+                      className="text-[#94A3B8] font-500 hover:underline flex items-center gap-1"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" /> View messages
+                    </Link>
+                  )}
+                </div>
               </div>
+
+              {sub.status === 'canceled' && (
+                <p className="text-xs text-[#94A3B8] mt-3 pt-3 border-t border-black/5">
+                  Subscription ended — your conversation history is saved. Re-subscribe anytime to keep chatting.
+                </p>
+              )}
             </div>
           ))}
         </div>

@@ -41,6 +41,7 @@ export interface Subscription {
   credits_remaining: number;
   credits_total: number;
   current_period_end: string;
+  cancel_at_period_end?: boolean;
   twins: TwinSummary;
 }
 

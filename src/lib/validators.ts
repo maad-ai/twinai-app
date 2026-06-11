@@ -45,6 +45,10 @@ export const updateProfileSchema = z.object({
   role: z.enum(['fan', 'creator']),
 });
 
+export const cancelSubscriptionSchema = z.object({
+  subscriptionId: z.string().uuid(),
+});
+
 /**
  * Parse a request body against a schema.
  * Returns { data } on success or { error: Response } on failure.

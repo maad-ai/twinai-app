@@ -96,6 +96,7 @@ export async function POST(req: Request) {
           .from('subscriptions')
           .update({
             status,
+            cancel_at_period_end: obj.cancel_at_period_end ?? false,
             current_period_end: new Date((obj.current_period_end ?? 0) * 1000).toISOString(),
             updated_at: new Date().toISOString(),
           })

@@ -151,6 +151,7 @@ export async function GET() {
       credits_remaining,
       credits_total,
       current_period_end,
+      cancel_at_period_end,
       twins (
         id,
         name,
