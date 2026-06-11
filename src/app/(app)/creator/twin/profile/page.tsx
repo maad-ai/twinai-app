@@ -12,6 +12,7 @@ import {
   Link2,
   Copy,
 } from 'lucide-react';
+import { PUBLIC_THEMES } from '@/lib/themes';
 
 interface Socials {
   instagram?: string | null;
@@ -30,7 +31,7 @@ interface TwinData {
   status: string;
   settings: {
     welcome_message?: string;
-    public_profile?: { bio?: string | null; socials?: Socials };
+    public_profile?: { bio?: string | null; socials?: Socials; theme?: string };
   };
 }
 
@@ -58,6 +59,7 @@ export default function PublicPageEditorPage() {
   const [bio, setBio] = useState('');
   const [welcome, setWelcome] = useState('');
   const [socials, setSocials] = useState<Socials>({});
+  const [theme, setTheme] = useState('clean');
   const [isLive, setIsLive] = useState(false);
 
   useEffect(() => {
@@ -72,6 +74,7 @@ export default function PublicPageEditorPage() {
           setBio(t.settings?.public_profile?.bio || '');
           setWelcome(t.settings?.welcome_message || '');
           setSocials(t.settings?.public_profile?.socials || {});
+          setTheme(t.settings?.public_profile?.theme || 'clean');
           setIsLive(t.status === 'active');
         }
       }
@@ -97,6 +100,7 @@ export default function PublicPageEditorPage() {
           bio,
           welcomeMessage: welcome,
           socials,
+          theme,
           status: nextStatus,
         }),
       });
@@ -267,6 +271,36 @@ export default function PublicPageEditorPage() {
             placeholder="The first message fans see in the chat preview"
             className={`${inputClass} resize-none`}
           />
+        </div>
+      </div>
+
+      {/* Background theme */}
+      <div className="card rounded-2xl p-6 mb-6">
+        <h2 className="font-display font-700 text-[#0F0F23] mb-1">Background</h2>
+        <p className="text-xs text-[#94A3B8] mb-4">Pick the vibe of your public page.</p>
+        <div className="grid grid-cols-4 gap-3">
+          {Object.values(PUBLIC_THEMES).map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTheme(t.key)}
+              aria-pressed={theme === t.key}
+              className={`rounded-xl overflow-hidden border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A855F7] ${
+                theme === t.key
+                  ? 'border-[#A855F7] shadow-md'
+                  : 'border-black/[0.08] hover:border-black/20'
+              }`}
+            >
+              <div className="h-12 w-full" style={{ background: t.background }} />
+              <p
+                className={`text-[11px] font-600 py-1.5 ${
+                  theme === t.key ? 'text-[#A855F7]' : 'text-[#64748B]'
+                }`}
+              >
+                {t.label}
+              </p>
+            </button>
+          ))}
         </div>
       </div>
 

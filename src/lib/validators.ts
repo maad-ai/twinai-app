@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { THEME_KEYS } from '@/lib/themes';
 
 export const sendMessageSchema = z.object({
   twinId: z.string().uuid(),
@@ -99,6 +100,8 @@ export const updateTwinPublicProfileSchema = z.object({
         }),
     })
     .optional(),
+  /** Background theme of the public page. */
+  theme: z.enum(THEME_KEYS).optional(),
   /** Publish toggle: 'active' makes the public page live, 'draft' hides it. */
   status: z.enum(['active', 'draft']).optional(),
 });

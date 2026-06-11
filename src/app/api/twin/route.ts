@@ -146,11 +146,12 @@ export async function PATCH(req: Request) {
 
   const settings = { ...(twin.settings || {}) };
   if (body.welcomeMessage !== undefined) settings.welcome_message = body.welcomeMessage;
-  if (body.bio !== undefined || body.socials !== undefined) {
+  if (body.bio !== undefined || body.socials !== undefined || body.theme !== undefined) {
     settings.public_profile = {
       ...(settings.public_profile || {}),
       ...(body.bio !== undefined ? { bio: body.bio } : {}),
       ...(body.socials !== undefined ? { socials: body.socials } : {}),
+      ...(body.theme !== undefined ? { theme: body.theme } : {}),
     };
   }
 
