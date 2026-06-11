@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getProfileByClerkId, getCreatorTwin } from '@/lib/db';
-import { parseBody, createTwinSchema } from '@/lib/validators';
+import { parseBody, createTwinSchema, updateTwinPublicProfileSchema } from '@/lib/validators';
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -121,4 +121,58 @@ export async function GET() {
   const twin = await getCreatorTwin(supabase, profile.id, '*');
 
   return Response.json({ twin: twin || null });
+}
+
+/** Update the creator's public page (tagline, bio, socials, welcome message, publish toggle). */
+export async function PATCH(req: Request) {
+  const { userId } = await auth();
+  if (!userId) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const supabase = createAdminClient();
+  const profile = await getProfileByClerkId(supabase, userId, 'id');
+  if (!profile) {
+    return Response.json({ error: 'Profile not found' }, { status: 404 });
+  }
+
+  const twin = await getCreatorTwin(supabase, profile.id, 'id, settings, status');
+  if (!twin) {
+    return Response.json({ error: 'Twin not found' }, { status: 404 });
+  }
+
+  const { data: body, error: validationError } = await parseBody(req, updateTwinPublicProfileSchema);
+  if (validationError) return validationError;
+
+  const settings = { ...(twin.settings || {}) };
+  if (body.welcomeMessage !== undefined) settings.welcome_message = body.welcomeMessage;
+  if (body.bio !== undefined || body.socials !== undefined) {
+    settings.public_profile = {
+      ...(settings.public_profile || {}),
+      ...(body.bio !== undefined ? { bio: body.bio } : {}),
+      ...(body.socials !== undefined ? { socials: body.socials } : {}),
+    };
+  }
+
+  const update: Record<string, unknown> = {
+    settings,
+    updated_at: new Date().toISOString(),
+  };
+  if (body.tagline !== undefined) update.tagline = body.tagline;
+  // Publish toggle — never overrides 'training'/'paused' transitions implicitly.
+  if (body.status && ['active', 'draft'].includes(body.status)) update.status = body.status;
+
+  const { data: updated, error } = await supabase
+    .from('twins')
+    .update(update)
+    .eq('id', twin.id)
+    .select('id, name, slug, tagline, niche, status, settings')
+    .maybeSingle();
+
+  if (error || !updated) {
+    console.error('Twin update error:', error);
+    return Response.json({ error: 'Failed to update twin' }, { status: 500 });
+  }
+
+  return Response.json({ twin: updated });
 }

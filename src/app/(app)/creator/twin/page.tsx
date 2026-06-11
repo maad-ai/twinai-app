@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Sparkles, Upload, Eye, Settings } from 'lucide-react';
+import { Sparkles, Upload, Eye, Globe } from 'lucide-react';
 import Link from 'next/link';
 import { formatPrice } from '@/lib/format';
 
@@ -106,10 +106,10 @@ export default async function TwinPage() {
           <p className="text-xs text-[#94A3B8] mt-1">Test your twin</p>
         </Link>
 
-        <Link href="/creator/onboarding" className="card rounded-xl p-5 hover:border-[#FBBF24]/30 transition-all group">
-          <Settings className="w-5 h-5 text-[#FBBF24] mb-2" strokeWidth={1.8} />
-          <h3 className="font-display font-700 text-[#0F0F23] group-hover:text-[#FBBF24] transition-colors">Edit</h3>
-          <p className="text-xs text-[#94A3B8] mt-1">Change settings</p>
+        <Link href="/creator/twin/profile" className="card rounded-xl p-5 hover:border-[#FBBF24]/30 transition-all group">
+          <Globe className="w-5 h-5 text-[#FBBF24] mb-2" strokeWidth={1.8} />
+          <h3 className="font-display font-700 text-[#0F0F23] group-hover:text-[#FBBF24] transition-colors">Public page</h3>
+          <p className="text-xs text-[#94A3B8] mt-1">Bio, socials &amp; publish</p>
         </Link>
       </div>
     </div>

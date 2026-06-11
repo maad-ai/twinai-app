@@ -43,7 +43,10 @@ export function ShareTwinLink({ slug, name }: { slug: string; name: string }) {
         <h2 className="font-display font-700 text-lg">Your twin link</h2>
       </div>
       <p className="text-sm text-[#94A3B8] mb-4">
-        Put it in your bio, stories, and pinned comments — this is how fans find your twin.
+        Put it in your bio, stories, and pinned comments — this is how fans find your twin.{' '}
+        <a href="/creator/twin/profile" className="text-[#A855F7] font-600 hover:underline">
+          Customize your page →
+        </a>
       </p>
 
       <div className="flex flex-col sm:flex-row gap-2">

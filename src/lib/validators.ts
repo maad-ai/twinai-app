@@ -49,6 +49,60 @@ export const cancelSubscriptionSchema = z.object({
   subscriptionId: z.string().uuid(),
 });
 
+/** Social handle: letters/numbers/dot/underscore/dash, no @ or URLs. */
+const socialHandle = z
+  .string()
+  .trim()
+  .regex(/^[a-zA-Z0-9._-]*$/, 'Handle only — no @ or links')
+  .max(40)
+  .optional()
+  .nullable()
+  .transform((v) => (v === '' ? null : v ?? null));
+
+export const updateTwinPublicProfileSchema = z.object({
+  tagline: z
+    .string()
+    .trim()
+    .max(120)
+    .optional()
+    .nullable()
+    .transform((v) => (v === '' ? null : v ?? null)),
+  bio: z
+    .string()
+    .trim()
+    .max(600)
+    .optional()
+    .nullable()
+    .transform((v) => (v === '' ? null : v ?? null)),
+  welcomeMessage: z
+    .string()
+    .trim()
+    .max(300)
+    .optional()
+    .nullable()
+    .transform((v) => (v === '' ? null : v ?? null)),
+  socials: z
+    .object({
+      instagram: socialHandle,
+      tiktok: socialHandle,
+      youtube: socialHandle,
+      x: socialHandle,
+      website: z
+        .string()
+        .trim()
+        .max(200)
+        .optional()
+        .nullable()
+        .transform((v) => (v === '' ? null : v ?? null))
+        .refine((v) => v == null || /^https?:\/\/.+\..+/.test(v), {
+          message: 'Website must be a full URL (https://…)',
+        }),
+    })
+    .optional(),
+  /** Publish toggle: 'active' makes the public page live, 'draft' hides it. */
+  status: z.enum(['active', 'draft']).optional(),
+});
+
 /**
  * Parse a request body against a schema.
  * Returns { data } on success or { error: Response } on failure.
