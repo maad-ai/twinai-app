@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Sparkles, Upload, Eye, Globe } from 'lucide-react';
+import { Sparkles, Upload, Eye, Globe, Sliders } from 'lucide-react';
 import Link from 'next/link';
 import { formatPrice } from '@/lib/format';
 
@@ -93,7 +93,7 @@ export default async function TwinPage() {
       </div>
 
       {/* Quick actions */}
-      <div className="grid sm:grid-cols-3 gap-4">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Link href="/creator/twin/training" className="card rounded-xl p-5 hover:border-[#A855F7]/30 transition-all group">
           <Upload className="w-5 h-5 text-[#A855F7] mb-2" strokeWidth={1.8} />
           <h3 className="font-display font-700 text-[#0F0F23] group-hover:text-[#A855F7] transition-colors">Train</h3>
@@ -110,6 +110,12 @@ export default async function TwinPage() {
           <Globe className="w-5 h-5 text-[#FBBF24] mb-2" strokeWidth={1.8} />
           <h3 className="font-display font-700 text-[#0F0F23] group-hover:text-[#FBBF24] transition-colors">Public page</h3>
           <p className="text-xs text-[#94A3B8] mt-1">Bio, socials &amp; publish</p>
+        </Link>
+
+        <Link href="/creator/twin/settings" className="card rounded-xl p-5 hover:border-[#A855F7]/30 transition-all group">
+          <Sliders className="w-5 h-5 text-[#A855F7] mb-2" strokeWidth={1.8} />
+          <h3 className="font-display font-700 text-[#0F0F23] group-hover:text-[#A855F7] transition-colors">Behavior</h3>
+          <p className="text-xs text-[#94A3B8] mt-1">Personality, language &amp; pricing</p>
         </Link>
       </div>
     </div>

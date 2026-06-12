@@ -106,6 +106,37 @@ export const updateTwinPublicProfileSchema = z.object({
   status: z.enum(['active', 'draft']).optional(),
 });
 
+const personalityValue = z.number().int().min(0).max(100);
+
+export const updateTwinBehaviorSchema = z.object({
+  personality: z
+    .object({
+      tone: personalityValue.optional(),
+      humor: personalityValue.optional(),
+      length: personalityValue.optional(),
+      emojis: personalityValue.optional(),
+      energy: personalityValue.optional(),
+    })
+    .optional(),
+  blockedTopics: z
+    .array(z.string().trim().min(1).max(60))
+    .max(20)
+    .optional(),
+  language: z.enum(['en', 'fr', 'es']).optional(),
+  monthlyPriceCents: z.number().int().min(299).max(99999).optional(),
+  pricingTiers: z
+    .array(
+      z.object({
+        cents: z.number().int().min(299).max(99999),
+        credits: z.number().int().min(10).max(5000),
+        name: z.string().trim().min(1).max(20),
+      })
+    )
+    .min(1)
+    .max(3)
+    .optional(),
+});
+
 /**
  * Parse a request body against a schema.
  * Returns { data } on success or { error: Response } on failure.
