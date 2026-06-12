@@ -61,18 +61,42 @@ interface Json3Event {
 export async function fetchYouTubeTranscript(
   videoId: string
 ): Promise<{ title: string; text: string }> {
-  let info;
-  try {
-    const yt = await getInnertube();
-    info = await yt.getInfo(videoId);
-  } catch {
+  const yt = await getInnertube();
+
+  // Datacenter IPs (Vercel) often get bot-gated responses with no captions
+  // on the default WEB client — fall back through alternate clients.
+  let info: { basic_info?: { title?: string }; captions?: { caption_tracks?: unknown }; playability_status?: { status?: string; reason?: string } } | null = null;
+  let tracks: CaptionTrack[] = [];
+  let lastPlayability = '';
+
+  for (const client of [undefined, 'MWEB', 'TV_EMBEDDED'] as const) {
+    try {
+      info = client
+        ? await yt.getBasicInfo(videoId, { client })
+        : await yt.getInfo(videoId);
+      tracks = (info.captions?.caption_tracks || []) as CaptionTrack[];
+      lastPlayability = info.playability_status?.status || '';
+      if (tracks.length) break;
+      console.warn(
+        `[youtube] no captions via ${client || 'WEB'} (playability: ${lastPlayability} ${info.playability_status?.reason || ''})`
+      );
+    } catch (err) {
+      console.warn(`[youtube] ${client || 'WEB'} client failed:`, err instanceof Error ? err.message : err);
+    }
+  }
+
+  if (!info) {
     throw new Error('Could not load this video — check the link and try again.');
   }
 
   const title: string = info.basic_info?.title || 'YouTube video';
-  const tracks = (info.captions?.caption_tracks || []) as unknown as CaptionTrack[];
 
   if (!tracks.length) {
+    if (lastPlayability && lastPlayability !== 'OK') {
+      throw new Error(
+        'YouTube is blocking our server right now — try again in a few minutes, or paste the script as text.'
+      );
+    }
     throw new Error('This video has no captions — paste the script as text instead.');
   }
 

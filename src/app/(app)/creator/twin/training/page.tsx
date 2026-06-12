@@ -138,7 +138,7 @@ export default function TrainingPage() {
         ) : (
           <div>
             <label className="block text-sm font-500 text-[#0F0F23] mb-2">
-              YouTube or TikTok URL
+              YouTube video URL
             </label>
             <input
               type="url"
@@ -148,7 +148,8 @@ export default function TrainingPage() {
               className="w-full px-4 py-3 rounded-xl bg-[#F8FAFC] border border-black/5 text-[#0F0F23] placeholder:text-[#94A3B8]/60 focus:outline-none focus:border-[#A855F7]/40 transition-all text-sm"
             />
             <p className="text-xs text-[#94A3B8] mt-2">
-              We&apos;ll extract the transcript automatically (coming soon — paste text for now)
+              We pull the transcript automatically — works with any public video that has
+              captions. TikTok/Instagram coming next.
             </p>
           </div>
         )}
