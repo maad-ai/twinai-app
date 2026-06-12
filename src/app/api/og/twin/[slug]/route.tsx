@@ -9,12 +9,22 @@ export async function GET(
 ) {
   const { slug } = await params;
   const supabase = createAdminClient();
-  const { data: twin } = await supabase
+  const OG_COLUMNS = 'name, slug, tagline, niche, monthly_price_cents, status';
+  // Prefer `certified`, but the column may not exist yet (migration 003).
+  let { data: twin, error } = await supabase
     .from('twins')
-    .select('name, slug, tagline, niche, monthly_price_cents, status')
+    .select(`${OG_COLUMNS}, certified`)
     .eq('slug', slug)
     .in('status', ['active', 'training'])
     .maybeSingle();
+  if (error) {
+    ({ data: twin } = await supabase
+      .from('twins')
+      .select(OG_COLUMNS)
+      .eq('slug', slug)
+      .in('status', ['active', 'training'])
+      .maybeSingle());
+  }
 
   if (!twin) {
     return new Response('Not found', { status: 404 });
@@ -55,8 +65,29 @@ export async function GET(
           {twin.name.charAt(0)}
         </div>
 
-        <div style={{ display: 'flex', color: 'white', fontSize: '58px', fontWeight: 800 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            color: 'white',
+            fontSize: '58px',
+            fontWeight: 800,
+          }}
+        >
           {twin.name}
+          {twin.certified ? (
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" fill="#A855F7" />
+              <path
+                d="M8 12.5l2.5 2.5L16 9.5"
+                stroke="white"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : null}
         </div>
         <div style={{ display: 'flex', color: '#94A3B8', fontSize: '30px', marginTop: '10px' }}>
           Chat with my AI twin — anytime, about anything

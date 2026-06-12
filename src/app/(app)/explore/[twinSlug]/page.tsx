@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { MessageCircle, Users, Sparkles, Check } from 'lucide-react';
 import type { Twin } from '@/types';
 import { Avatar } from '@/components/ui/Avatar';
+import { CertifiedBadge } from '@/components/ui/CertifiedBadge';
 import { formatPrice } from '@/lib/format';
 
 const DEFAULT_TIERS = [
@@ -105,7 +106,10 @@ export default function TwinProfilePage() {
       {/* Profile header */}
       <div className="text-center mb-8">
         <Avatar name={twin.name} size="xl" className="mx-auto mb-4" />
-        <h1 className="font-display font-800 text-2xl text-[#0F0F23] mb-1">{twin.name}</h1>
+        <h1 className="font-display font-800 text-2xl text-[#0F0F23] mb-1 flex items-center justify-center gap-1.5">
+          {twin.name}
+          {twin.certified ? <CertifiedBadge /> : null}
+        </h1>
         <p className="text-sm text-[#A855F7] font-500 mb-2">{twin.niche}</p>
         {twin.tagline && (
           <p className="text-[#94A3B8] text-sm max-w-xs mx-auto">{twin.tagline}</p>

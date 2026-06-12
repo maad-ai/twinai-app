@@ -19,6 +19,8 @@ export interface Twin {
   monthly_price_cents: number;
   total_subscribers: number;
   total_messages: number;
+  /** Twiinn Certified badge — optional: the DB column may not exist yet. */
+  certified?: boolean;
   settings: {
     welcome_message?: string;
     pricing_tiers?: PricingTier[];

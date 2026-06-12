@@ -9,11 +9,23 @@ export async function GET(
   const { twinSlug } = await params;
   const supabase = createAdminClient();
 
-  const { data: twin } = await supabase
+  const TWIN_COLUMNS =
+    'id, name, slug, tagline, niche, monthly_price_cents, total_subscribers, total_messages, settings, status';
+
+  // Prefer `certified`, but the column may not exist yet (migration 003) —
+  // fall back to the base column list so this route never 500s.
+  let { data: twin, error } = await supabase
     .from('twins')
-    .select('id, name, slug, tagline, niche, monthly_price_cents, total_subscribers, total_messages, settings, status')
+    .select(`${TWIN_COLUMNS}, certified`)
     .eq('slug', twinSlug)
     .maybeSingle();
+  if (error) {
+    ({ data: twin } = await supabase
+      .from('twins')
+      .select(TWIN_COLUMNS)
+      .eq('slug', twinSlug)
+      .maybeSingle());
+  }
 
   if (!twin) {
     return Response.json({ error: 'Twin not found' }, { status: 404 });

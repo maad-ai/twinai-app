@@ -2,33 +2,63 @@ import { Compass } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import Link from 'next/link';
 import { Avatar } from '@/components/ui/Avatar';
+import { CertifiedBadge } from '@/components/ui/CertifiedBadge';
 import { formatPrice } from '@/lib/format';
 
 export const metadata = { title: 'Explore' };
 
+const EXPLORE_COLUMNS = `
+  id,
+  name,
+  slug,
+  tagline,
+  niche,
+  monthly_price_cents,
+  total_subscribers,
+  total_messages,
+  status,
+  creator_id,
+  profiles!twins_creator_id_fkey (
+    display_name,
+    avatar_url
+  )
+`;
+
+interface ExploreTwin {
+  id: string;
+  name: string;
+  slug: string;
+  tagline: string | null;
+  niche: string | null;
+  monthly_price_cents: number;
+  total_subscribers: number;
+  total_messages: number;
+  status: string;
+  creator_id: string;
+  /** Optional: the DB column may not exist yet (migration 003). */
+  certified?: boolean;
+  profiles: { display_name: string | null; avatar_url: string | null } | null;
+}
+
 export default async function ExplorePage() {
   const supabase = createAdminClient();
 
-  const { data: twins } = await supabase
+  // Prefer `certified`, but the column may not exist yet (migration 003) —
+  // fall back to the base column list so this page never 500s.
+  const { data, error } = await supabase
     .from('twins')
-    .select(`
-      id,
-      name,
-      slug,
-      tagline,
-      niche,
-      monthly_price_cents,
-      total_subscribers,
-      total_messages,
-      status,
-      creator_id,
-      profiles!twins_creator_id_fkey (
-        display_name,
-        avatar_url
-      )
-    `)
+    .select(`certified, ${EXPLORE_COLUMNS}`)
     .in('status', ['active', 'draft'])
     .order('total_subscribers', { ascending: false });
+  let twins = data as unknown as ExploreTwin[] | null;
+  if (error) {
+    const { data: fallback } = await supabase
+      .from('twins')
+      .select(EXPLORE_COLUMNS)
+      .in('status', ['active', 'draft'])
+      .order('total_subscribers', { ascending: false });
+    twins = fallback as unknown as ExploreTwin[] | null;
+  }
 
   return (
     <div className="p-6 md:p-8">
@@ -57,8 +87,9 @@ export default async function ExplorePage() {
               <div className="flex items-center gap-3 mb-4">
                 <Avatar name={twin.name} size="lg" />
                 <div className="min-w-0">
-                  <p className="font-display font-700 text-[#0F0F23] truncate group-hover:text-[#A855F7] transition-colors">
-                    {twin.name}
+                  <p className="font-display font-700 text-[#0F0F23] group-hover:text-[#A855F7] transition-colors flex items-center gap-1.5">
+                    <span className="truncate">{twin.name}</span>
+                    {twin.certified ? <CertifiedBadge size="sm" /> : null}
                   </p>
                   <p className="text-xs text-[#94A3B8]">{twin.niche}</p>
                 </div>

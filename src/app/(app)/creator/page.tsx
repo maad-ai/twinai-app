@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { LayoutDashboard, Users, MessageCircle, DollarSign, Settings, Eye } from 'lucide-react';
+import { LayoutDashboard, Users, MessageCircle, DollarSign, Settings, Eye, BadgeCheck } from 'lucide-react';
 import Link from 'next/link';
 import { formatPrice } from '@/lib/format';
 import { ShareTwinLink } from '@/components/creator/ShareTwinLink';
@@ -116,6 +116,41 @@ export default async function CreatorDashboardPage() {
             <div className="mt-4 pt-4 border-t border-black/5">
               <p className="text-xs text-[#94A3B8] uppercase tracking-wider mb-1">Tagline</p>
               <p className="text-[#0F0F23]">{twin.tagline}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Twiinn Certified — badge status / application teaser */}
+      {twin && (
+        <div className="card rounded-2xl p-5 mb-6">
+          {twin.certified ? (
+            <div className="flex items-center gap-3">
+              <BadgeCheck className="w-6 h-6 text-[#A855F7] flex-shrink-0" strokeWidth={1.8} />
+              <div>
+                <h2 className="font-display font-700 text-[#0F0F23]">Twiinn Certified</h2>
+                <p className="text-sm text-[#94A3B8]">
+                  You&apos;re certified — your twin gets featured in Explore.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <BadgeCheck className="w-6 h-6 text-[#94A3B8] flex-shrink-0" strokeWidth={1.8} />
+                <div>
+                  <h2 className="font-display font-700 text-[#0F0F23]">Twiinn Certified</h2>
+                  <p className="text-sm text-[#94A3B8]">
+                    25+ active subscribers for 2 consecutive months
+                  </p>
+                </div>
+              </div>
+              <a
+                href={`mailto:contact@twiinn.ai?subject=${encodeURIComponent(`Certification application — ${twin.slug}`)}`}
+                className="gradient-btn text-white text-sm font-600 px-4 py-2 rounded-xl"
+              >
+                Apply for certification
+              </a>
             </div>
           )}
         </div>

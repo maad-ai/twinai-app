@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Avatar } from '@/components/ui/Avatar';
+import { CertifiedBadge } from '@/components/ui/CertifiedBadge';
 import { formatPrice } from '@/lib/format';
 import { getTheme } from '@/lib/themes';
 import type { PricingTier } from '@/types';
@@ -82,17 +83,43 @@ const SAMPLE_QUESTIONS: Record<string, string[]> = {
   other: ['Can I ask you anything?', 'What do you recommend for me?', 'Help me get started'],
 };
 
-async function getTwin(slug: string) {
+const TWIN_COLUMNS =
+  'id, name, slug, tagline, niche, monthly_price_cents, total_subscribers, total_messages, settings, status';
+
+interface PublicTwin {
+  id: string;
+  name: string;
+  slug: string;
+  tagline: string | null;
+  niche: string | null;
+  monthly_price_cents: number;
+  total_subscribers: number;
+  total_messages: number;
+  settings: Record<string, any> | null;
+  status: string;
+  /** Optional: the DB column may not exist yet (migration 003). */
+  certified?: boolean;
+}
+
+async function getTwin(slug: string): Promise<PublicTwin | null> {
   const supabase = createAdminClient();
-  const { data: twin } = await supabase
+  // Prefer `certified`, but the column may not exist yet (migration 003) —
+  // fall back to the base column list so this page never 500s.
+  const { data: twin, error } = await supabase
     .from('twins')
-    .select(
-      'id, name, slug, tagline, niche, monthly_price_cents, total_subscribers, total_messages, settings, status'
-    )
+    .select(`${TWIN_COLUMNS}, certified`)
     .eq('slug', slug)
     .in('status', ['active', 'training'])
     .maybeSingle();
-  return twin;
+  if (!error) return twin as PublicTwin | null;
+
+  const { data: fallback } = await supabase
+    .from('twins')
+    .select(TWIN_COLUMNS)
+    .eq('slug', slug)
+    .in('status', ['active', 'training'])
+    .maybeSingle();
+  return fallback as PublicTwin | null;
 }
 
 function parseHandle(raw: string): string | null {
@@ -148,7 +175,7 @@ export default async function PublicTwinPage({
 
   const tiers: PricingTier[] = twin.settings?.pricing_tiers || DEFAULT_TIERS;
   const cheapest = tiers.reduce((a, b) => (a.cents < b.cents ? a : b));
-  const questions = SAMPLE_QUESTIONS[twin.niche?.toLowerCase?.()] || SAMPLE_QUESTIONS.other;
+  const questions = SAMPLE_QUESTIONS[twin.niche?.toLowerCase?.() ?? 'other'] || SAMPLE_QUESTIONS.other;
   const welcome =
     twin.settings?.welcome_message ||
     `Hey! I'm ${twin.name}'s AI twin — trained on everything they know. Ask me anything!`;
@@ -201,7 +228,12 @@ export default async function PublicTwinPage({
             size="xl"
             className={`mx-auto mb-4 ring-4 shadow-lg ${c.avatarRing}`}
           />
-          <h1 className={`font-display font-800 text-3xl mb-1.5 ${c.heading}`}>{twin.name}</h1>
+          <h1
+            className={`font-display font-800 text-3xl mb-1.5 flex items-center justify-center gap-2 ${c.heading}`}
+          >
+            {twin.name}
+            {twin.certified ? <CertifiedBadge size="lg" /> : null}
+          </h1>
           <div className="flex items-center justify-center gap-2 mb-3">
             <span
               className={`inline-flex items-center gap-1.5 text-xs font-600 px-2.5 py-1 rounded-full ${c.accentPill}`}
