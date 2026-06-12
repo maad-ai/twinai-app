@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getProfileByClerkId, getCreatorTwin } from '@/lib/db';
 import { parseBody, trainContentSchema } from '@/lib/validators';
 import { uploadRateLimit, checkRateLimit } from '@/lib/rate-limit';
+import { extractVideoId, fetchYouTubeTranscript } from '@/lib/youtube';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,9 +65,32 @@ export async function POST(req: Request) {
   }
 
   const { sourceType, rawText, sourceUrl } = body;
+  let finalText = rawText?.trim() || null;
+  let metadata: Record<string, unknown> = {};
 
-  if (sourceType === 'text' && (!rawText || rawText.trim().length < 20)) {
+  if (sourceType === 'text' && (!finalText || finalText.length < 20)) {
     return Response.json({ error: 'Text must be at least 20 characters' }, { status: 400 });
+  }
+
+  // YouTube: the creator just pastes a link — we fetch the transcript.
+  if (sourceType === 'youtube') {
+    if (!sourceUrl) {
+      return Response.json({ error: 'Paste a YouTube video link' }, { status: 400 });
+    }
+    const videoId = extractVideoId(sourceUrl);
+    if (!videoId) {
+      return Response.json({ error: 'That doesn\'t look like a YouTube video link' }, { status: 400 });
+    }
+    try {
+      const { title, text } = await fetchYouTubeTranscript(videoId);
+      finalText = text;
+      metadata = { youtube_title: title, video_id: videoId };
+    } catch (err) {
+      return Response.json(
+        { error: err instanceof Error ? err.message : 'Could not fetch this video\'s captions' },
+        { status: 422 }
+      );
+    }
   }
 
   // Insert raw content
@@ -75,9 +99,10 @@ export async function POST(req: Request) {
     .insert({
       twin_id: twin.id,
       source_type: sourceType,
-      raw_text: rawText?.trim() || null,
+      raw_text: finalText,
       source_url: sourceUrl || null,
       status: 'pending',
+      metadata,
     })
     .select()
     .maybeSingle();
@@ -87,10 +112,10 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Failed to add content' }, { status: 500 });
   }
 
-  // Process text content: chunk and store
-  if (sourceType === 'text' && rawText) {
+  // Process text content (typed or fetched from YouTube): chunk and store
+  if (finalText) {
     try {
-      const chunks = chunkText(rawText.trim(), 512, 64);
+      const chunks = chunkText(finalText, 512, 64);
 
       // Store chunks as simple text (embeddings will be added when AI API is configured)
       for (const chunk of chunks) {
@@ -105,7 +130,7 @@ export async function POST(req: Request) {
         .from('training_content')
         .update({
           status: 'embedded',
-          metadata: { chunks: chunks.length, characters: rawText.length }
+          metadata: { ...metadata, chunks: chunks.length, characters: finalText.length },
         })
         .eq('id', content.id);
 

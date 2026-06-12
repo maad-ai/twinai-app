@@ -18,9 +18,15 @@ interface TwinData {
   settings: {
     blocked_topics?: string[];
     language?: string;
+    languages?: string[];
     pricing_tiers?: PricingTier[];
   };
 }
+
+/** Mirrors the server-side unit-economics floor (6¢/message, $4.99 min). */
+const MIN_CENTS_PER_CREDIT = 6;
+const MIN_TIER_CENTS = 499;
+const maxCreditsFor = (cents: number) => Math.floor(cents / MIN_CENTS_PER_CREDIT);
 
 const SLIDERS: { key: string; label: string; low: string; high: string }[] = [
   { key: 'tone', label: 'Tone', low: 'Formal', high: 'Casual' },
@@ -53,7 +59,7 @@ export default function TwinSettingsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [personality, setPersonality] = useState<Record<string, number>>({});
-  const [language, setLanguage] = useState('en');
+  const [languages, setLanguages] = useState<string[]>(['en']);
   const [topics, setTopics] = useState<string[]>([]);
   const [topicInput, setTopicInput] = useState('');
   const [tiers, setTiers] = useState<PricingTier[]>(DEFAULT_TIERS);
@@ -74,7 +80,13 @@ export default function TwinSettingsPage() {
             energy: 50,
             ...(t.personality || {}),
           });
-          setLanguage(t.settings?.language || 'en');
+          setLanguages(
+            t.settings?.languages?.length
+              ? t.settings.languages
+              : t.settings?.language
+                ? [t.settings.language]
+                : ['en']
+          );
           setTopics(t.settings?.blocked_topics || []);
           setTiers(t.settings?.pricing_tiers || DEFAULT_TIERS);
         }
@@ -100,15 +112,22 @@ export default function TwinSettingsPage() {
     setError(null);
     setSaved(false);
 
-    // Client-side sanity on tiers before hitting the API
+    // Client-side sanity on tiers (mirrors the server-side floor)
     for (const t of tiers) {
-      if (t.cents < 299 || t.cents > 99999) {
-        setError('Tier prices must be between $2.99 and $999.99.');
+      if (t.cents < MIN_TIER_CENTS || t.cents > 99999) {
+        setError('Tier prices must be between $4.99 and $999.99.');
         setSaving(false);
         return;
       }
       if (t.credits < 10 || t.credits > 5000) {
         setError('Messages per month must be between 10 and 5,000.');
+        setSaving(false);
+        return;
+      }
+      if (t.cents < t.credits * MIN_CENTS_PER_CREDIT) {
+        setError(
+          `"${t.name || 'This tier'}" gives too many messages for its price — at $${(t.cents / 100).toFixed(2)}, the max is ${maxCreditsFor(t.cents)} msgs/mo. Raise the price or lower the quota.`
+        );
         setSaving(false);
         return;
       }
@@ -126,7 +145,7 @@ export default function TwinSettingsPage() {
         body: JSON.stringify({
           personality,
           blockedTopics: topics,
-          language,
+          languages,
           monthlyPriceCents: tiers[1]?.cents ?? tiers[0]?.cents,
           pricingTiers: tiers,
         }),
@@ -210,27 +229,38 @@ export default function TwinSettingsPage() {
         </div>
       </div>
 
-      {/* Language */}
+      {/* Languages — multi-select */}
       <div className="card rounded-2xl p-6 mb-6">
-        <h2 className="font-display font-700 text-[#0F0F23] mb-1">Bot language</h2>
+        <h2 className="font-display font-700 text-[#0F0F23] mb-1">Bot languages</h2>
         <p className="text-xs text-[#94A3B8] mb-4">
-          Your twin always answers in this language.
+          Pick one or several. With several, your twin replies in the language the fan writes in
+          (the first one is the default).
         </p>
         <div className="flex gap-2">
-          {LANGUAGES.map((l) => (
-            <button
-              key={l.key}
-              onClick={() => setLanguage(l.key)}
-              aria-pressed={language === l.key}
-              className={`text-sm font-600 px-4 py-2 rounded-full border transition-colors ${
-                language === l.key
-                  ? 'bg-[#A855F7] border-[#A855F7] text-white'
-                  : 'bg-white border-black/10 text-[#475569] hover:border-[#A855F7]/40'
-              }`}
-            >
-              {l.label}
-            </button>
-          ))}
+          {LANGUAGES.map((l) => {
+            const active = languages.includes(l.key);
+            return (
+              <button
+                key={l.key}
+                onClick={() => {
+                  if (active) {
+                    if (languages.length > 1) setLanguages(languages.filter((x) => x !== l.key));
+                  } else {
+                    setLanguages([...languages, l.key]);
+                  }
+                }}
+                aria-pressed={active}
+                className={`text-sm font-600 px-4 py-2 rounded-full border transition-colors inline-flex items-center gap-1.5 ${
+                  active
+                    ? 'bg-[#A855F7] border-[#A855F7] text-white'
+                    : 'bg-white border-black/10 text-[#475569] hover:border-[#A855F7]/40'
+                }`}
+              >
+                {active && <Check className="w-3.5 h-3.5" strokeWidth={2.5} />}
+                {l.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -341,11 +371,18 @@ export default function TwinSettingsPage() {
                   msgs/mo
                 </span>
               </div>
+              {tier.cents >= MIN_TIER_CENTS && tier.cents < tier.credits * MIN_CENTS_PER_CREDIT && (
+                <p className="sm:col-span-3 text-xs text-red-600">
+                  At ${(tier.cents / 100).toFixed(2)}, max {maxCreditsFor(tier.cents)} msgs/mo —
+                  raise the price or lower the quota.
+                </p>
+              )}
             </div>
           ))}
         </div>
         <p className="text-xs text-[#94A3B8] mt-3">
-          You keep 85% of every subscription. The middle tier is shown as your headline price.
+          You keep 85% of every subscription. Minimum $4.99/plan and 6¢ per message — that&apos;s
+          what keeps the AI running. The middle tier is your headline price.
         </p>
       </div>
 

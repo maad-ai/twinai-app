@@ -94,6 +94,14 @@ export async function POST() {
     return Response.json({ url: link.url });
   } catch (err) {
     console.error('Stripe Connect onboarding failed:', err);
+    const msg = err instanceof Error ? err.message : '';
+    // Platform-side issue (Stripe Connect not activated on the dashboard)
+    if (/signed up for Connect/i.test(msg)) {
+      return Response.json(
+        { error: 'Payouts aren\'t open yet — the platform is finishing its Stripe setup. Check back soon!' },
+        { status: 503 }
+      );
+    }
     return Response.json(
       { error: 'Could not start payout setup — try again in a minute.' },
       { status: 502 }

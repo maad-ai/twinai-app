@@ -1,5 +1,17 @@
 import { z } from 'zod';
 import { THEME_KEYS } from '@/lib/themes';
+import { MIN_CENTS_PER_CREDIT, MIN_TIER_CENTS } from '@/lib/constants';
+
+/** A pricing tier that can never lose the platform money. */
+const profitableTier = z
+  .object({
+    cents: z.number().int().min(MIN_TIER_CENTS).max(99999),
+    credits: z.number().int().min(10).max(5000),
+    name: z.string().trim().min(1).max(20),
+  })
+  .refine((t) => t.cents >= t.credits * MIN_CENTS_PER_CREDIT, {
+    message: `Each message must cost at least ${MIN_CENTS_PER_CREDIT}¢ — lower the message quota or raise the price`,
+  });
 
 export const sendMessageSchema = z.object({
   twinId: z.string().uuid(),
@@ -18,16 +30,8 @@ export const createTwinSchema = z.object({
   niche: z.string().trim().min(1).max(40),
   personality: z.record(z.string(), z.number()).optional(),
   blockedTopics: z.array(z.string()).optional(),
-  pricingTiers: z
-    .array(
-      z.object({
-        cents: z.number().int().positive(),
-        credits: z.number().int().positive(),
-        name: z.string(),
-      })
-    )
-    .optional(),
-  monthlyPriceCents: z.number().int().positive().optional(),
+  pricingTiers: z.array(profitableTier).min(1).max(3).optional(),
+  monthlyPriceCents: z.number().int().min(MIN_TIER_CENTS).max(99999).optional(),
   creditsPerMonth: z.number().int().positive().optional(),
 });
 
@@ -122,18 +126,34 @@ export const updateTwinBehaviorSchema = z.object({
     .array(z.string().trim().min(1).max(60))
     .max(20)
     .optional(),
-  language: z.enum(['en', 'fr', 'es']).optional(),
-  monthlyPriceCents: z.number().int().min(299).max(99999).optional(),
-  pricingTiers: z
+  /** The twin can speak one or several languages. */
+  languages: z.array(z.enum(['en', 'fr', 'es'])).min(1).max(3).optional(),
+  monthlyPriceCents: z.number().int().min(MIN_TIER_CENTS).max(99999).optional(),
+  pricingTiers: z.array(profitableTier).min(1).max(3).optional(),
+});
+
+export const updateTwinIdentitySchema = z.object({
+  /** What the creator calls their fans, e.g. "team", "fam", "les boys" */
+  audienceNickname: z.string().trim().max(40).optional().nullable(),
+  /** How they typically open a conversation */
+  greeting: z.string().trim().max(200).optional().nullable(),
+  /** Signature phrases they actually say */
+  catchphrases: z.array(z.string().trim().min(1).max(120)).max(8).optional(),
+  /** Strong opinions they're known for */
+  opinions: z.array(z.string().trim().min(1).max(200)).max(6).optional(),
+  /** Things they would never say / do */
+  neverSay: z.array(z.string().trim().min(1).max(120)).max(8).optional(),
+  /** Short backstory in their own words */
+  backstory: z.string().trim().max(1200).optional().nullable(),
+  /** Real Q→A examples in their voice — the most powerful signal */
+  voiceExamples: z
     .array(
       z.object({
-        cents: z.number().int().min(299).max(99999),
-        credits: z.number().int().min(10).max(5000),
-        name: z.string().trim().min(1).max(20),
+        q: z.string().trim().min(3).max(300),
+        a: z.string().trim().min(3).max(600),
       })
     )
-    .min(1)
-    .max(3)
+    .max(5)
     .optional(),
 });
 

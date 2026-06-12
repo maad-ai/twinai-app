@@ -2,7 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getProfileByClerkId, getCreatorTwin } from '@/lib/db';
 import { parseBody, updateTwinBehaviorSchema } from '@/lib/validators';
-import { buildSystemPrompt } from '@/lib/twin-prompt';
+import { buildPromptFromTwin } from '@/lib/twin-prompt';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,16 +42,18 @@ export async function PATCH(req: Request) {
   };
   const settings = { ...(twin.settings || {}) };
   if (body.blockedTopics !== undefined) settings.blocked_topics = body.blockedTopics;
-  if (body.language !== undefined) settings.language = body.language;
+  if (body.languages !== undefined) {
+    settings.languages = body.languages;
+    delete settings.language; // legacy single-language key
+  }
   if (body.pricingTiers !== undefined) settings.pricing_tiers = body.pricingTiers;
 
-  const systemPrompt = buildSystemPrompt({
+  const systemPrompt = buildPromptFromTwin({
     name: twin.name,
     niche: twin.niche,
     tagline: twin.tagline,
     personality,
-    blockedTopics: settings.blocked_topics || [],
-    language: settings.language,
+    settings,
   });
 
   const update: Record<string, unknown> = {

@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Sparkles, Upload, Eye, Globe, Sliders } from 'lucide-react';
+import { Sparkles, Upload, Eye, Globe, Sliders, Fingerprint } from 'lucide-react';
 import Link from 'next/link';
 import { formatPrice } from '@/lib/format';
 
@@ -116,6 +116,12 @@ export default async function TwinPage() {
           <Sliders className="w-5 h-5 text-[#A855F7] mb-2" strokeWidth={1.8} />
           <h3 className="font-display font-700 text-[#0F0F23] group-hover:text-[#A855F7] transition-colors">Behavior</h3>
           <p className="text-xs text-[#94A3B8] mt-1">Personality, language &amp; pricing</p>
+        </Link>
+
+        <Link href="/creator/twin/identity" className="card rounded-xl p-5 hover:border-[#FF6B6B]/30 transition-all group">
+          <Fingerprint className="w-5 h-5 text-[#FF6B6B] mb-2" strokeWidth={1.8} />
+          <h3 className="font-display font-700 text-[#0F0F23] group-hover:text-[#FF6B6B] transition-colors">Identity</h3>
+          <p className="text-xs text-[#94A3B8] mt-1">Make it sound like you</p>
         </Link>
       </div>
     </div>

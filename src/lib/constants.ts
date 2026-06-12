@@ -13,6 +13,15 @@ export const DEFAULT_TIERS = MIN_TIER_PRICES.map((cents, i) => ({
 export const PLATFORM_FEE_PERCENT = 15;
 export const CREATOR_SHARE_PERCENT = 85;
 
+/**
+ * Unit-economics floor: every message a fan buys must cost at least this
+ * many cents so the platform's 15% always covers inference + processing.
+ * ($4.99 buys at most 83 msgs/mo; $19.99 → 333; $49.99 → 833.)
+ */
+export const MIN_CENTS_PER_CREDIT = 6;
+/** Cheapest allowed subscription tier (cents). */
+export const MIN_TIER_CENTS = 499;
+
 // Chat
 export const MAX_RESPONSE_TOKENS = 1024;
 export const CHAT_HISTORY_LIMIT = 10; // recent messages kept in context
