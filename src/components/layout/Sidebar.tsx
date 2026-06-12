@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { UserButton } from '@clerk/nextjs';
-import { Compass, MessageCircle, LayoutDashboard, Users, DollarSign, Settings, Sparkles } from 'lucide-react';
+import { Compass, MessageCircle, LayoutDashboard, Users, DollarSign, Settings, Sparkles, HelpCircle } from 'lucide-react';
 import Link from 'next/link';
 
 const fanLinks = [
@@ -14,6 +14,7 @@ const fanLinks = [
 const creatorLinks = [
   { href: '/creator', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/creator/twin', label: 'My Twin', icon: Sparkles },
+  { href: '/creator/questions', label: 'Questions', icon: HelpCircle },
   { href: '/creator/subscribers', label: 'Subscribers', icon: Users },
   { href: '/creator/earnings', label: 'Earnings', icon: DollarSign },
   { href: '/creator/conversations', label: 'Conversations', icon: MessageCircle },

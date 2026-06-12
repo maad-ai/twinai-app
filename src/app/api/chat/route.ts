@@ -10,6 +10,14 @@ import { CHAT_HISTORY_LIMIT, RAG_TOP_K } from '@/lib/constants';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+/**
+ * Matches the twin's canonical "I can't answer that" phrasings (see the
+ * RULES block in lib/twin-prompt.ts). Used to surface unanswered questions
+ * to the creator — kept tight to avoid false positives.
+ */
+const DEFLECTION_RE =
+  /haven'?t (really )?(talked|spoken) about|haven'?t covered|not something I(?:'ve| have)? (talk|cover|discuss)|can'?t (really )?help (you )?with that|outside (of )?my (knowledge|expertise|lane)|don'?t have (much )?(info|information|knowledge) (on|about)/i;
+
 export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) {
@@ -175,6 +183,25 @@ export async function POST(req: Request) {
           .from('twins')
           .update({ total_messages: (twin.total_messages || 0) + 2 })
           .eq('id', body.twinId);
+
+        // Surface unanswered questions to the creator. Fire-and-forget:
+        // the table may not exist yet (migration 004) and this must NEVER
+        // affect the chat response. Question stored in plain text (it was
+        // captured before encryption).
+        if (DEFLECTION_RE.test(fullResponse)) {
+          const normalized = body.message.toLowerCase().trim().replace(/\s+/g, ' ').slice(0, 200);
+          supabase
+            .from('unanswered_questions')
+            .insert({
+              twin_id: body.twinId,
+              question: body.message.slice(0, 1000),
+              normalized,
+            })
+            .then(
+              () => {},
+              () => {}
+            );
+        }
 
         controller.close();
       } catch (error) {
