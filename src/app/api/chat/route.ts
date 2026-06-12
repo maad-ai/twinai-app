@@ -16,7 +16,7 @@ export const maxDuration = 60;
  * to the creator — kept tight to avoid false positives.
  */
 const DEFLECTION_RE =
-  /haven'?t (really )?(talked|spoken) about|haven'?t covered|not something I(?:'ve| have)? (talk|cover|discuss)|can'?t (really )?help (you )?with that|outside (of )?my (knowledge|expertise|lane)|don'?t have (much )?(info|information|knowledge) (on|about)/i;
+  /haven['’]?t (really )?(talked|spoken) about|haven['’]?t covered|not something I(?:['’]ve| have)? (talk|cover|discuss)|can['’]?t (really )?help (you )?with that|outside (of )?my (knowledge|expertise|lane)|don['’]?t have (much )?(info|information|knowledge) (on|about)/i;
 
 export async function POST(req: Request) {
   const { userId } = await auth();

@@ -294,7 +294,7 @@ export default function TwinSettingsPage() {
           {tiers.map((tier, i) => (
             <div
               key={i}
-              className="grid grid-cols-[1fr_110px_120px] gap-2 items-center"
+              className="grid grid-cols-1 sm:grid-cols-[1fr_110px_120px] gap-2 items-center"
             >
               <div>
                 <label className="sr-only" htmlFor={`tier-name-${i}`}>Tier name</label>

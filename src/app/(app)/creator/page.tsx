@@ -30,6 +30,22 @@ export default async function CreatorDashboardPage() {
     .eq('creator_id', profile.id)
     .single();
 
+  // Lifetime net earnings from the ledger (zeros until rows exist)
+  let lifetimeCents = 0;
+  try {
+    const { data: earningRows, error } = await supabase
+      .from('earnings')
+      .select('net_amount_cents, status')
+      .eq('creator_id', profile.id);
+    if (!error && earningRows) {
+      lifetimeCents = earningRows
+        .filter((e) => e.status !== 'failed')
+        .reduce((sum, e) => sum + (e.net_amount_cents || 0), 0);
+    }
+  } catch {
+    lifetimeCents = 0;
+  }
+
   return (
     <div className="p-6 md:p-8 max-w-5xl">
       {/* Header */}
@@ -59,7 +75,7 @@ export default async function CreatorDashboardPage() {
         {[
           { label: 'Subscribers', value: twin?.total_subscribers ?? 0, icon: Users, color: '#00D4FF' },
           { label: 'Messages', value: twin?.total_messages ?? 0, icon: MessageCircle, color: '#FF6B6B' },
-          { label: 'Revenue', value: '$0.00', icon: DollarSign, color: '#84FF57' },
+          { label: 'Revenue', value: formatPrice(lifetimeCents), icon: DollarSign, color: '#84FF57' },
         ].map((stat) => (
           <div key={stat.label} className="card rounded-2xl p-6">
             <div className="flex items-center gap-3 mb-3">

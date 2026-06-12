@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   const { data: body, error: validationError } = await parseBody(req, createTwinSchema);
   if (validationError) return validationError;
 
-  const { name, tagline, niche, personality, blockedTopics, monthlyPriceCents, creditsPerMonth } = body;
+  const { name, tagline, niche, personality, blockedTopics, monthlyPriceCents, creditsPerMonth, pricingTiers } = body;
 
   // Generate slug from name
   const slug = name
@@ -67,6 +67,7 @@ export async function POST(req: Request) {
         blocked_topics: blockedTopics || [],
         welcome_message: `Hey! I'm ${name}'s AI twin. Ask me anything about ${niche.toLowerCase()}!`,
         response_style: (p.tone ?? 50) > 60 ? 'casual' : 'professional',
+        ...(pricingTiers?.length ? { pricing_tiers: pricingTiers } : {}),
       },
       monthly_price_cents: monthlyPriceCents || 1999,
       status: 'draft',
