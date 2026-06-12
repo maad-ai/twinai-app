@@ -20,6 +20,7 @@ const EXPLORE_COLUMNS = `
   status,
   creator_id,
   created_at,
+  photo_url,
   profiles!twins_creator_id_fkey (
     display_name,
     avatar_url
@@ -38,6 +39,7 @@ interface ExploreTwin {
   status: string;
   creator_id: string;
   created_at: string;
+  photo_url: string | null;
   /** Optional: the DB column may not exist yet (migration 003). */
   certified?: boolean;
   profiles: { display_name: string | null; avatar_url: string | null } | null;
@@ -91,7 +93,7 @@ function FeaturedCard({ twin }: { twin: ExploreTwin }) {
         <div className="flex flex-col items-center text-center">
           <span className="rounded-full p-[3px] mb-3" style={{ background: 'linear-gradient(135deg, #FF6B6B, #A855F7, #00D4FF)' }}>
             <span className="block rounded-full ring-2 ring-white">
-              <Avatar name={twin.name} size="xl" />
+              <Avatar name={twin.name} src={twin.photo_url} size="xl" />
             </span>
           </span>
           <p className="font-display font-800 text-lg text-[#0F0F23] group-hover:text-[#A855F7] transition-colors flex items-center gap-1.5">
@@ -191,7 +193,7 @@ export default async function ExplorePage() {
                     className="card rounded-2xl p-6 hover:border-[#A855F7]/20 transition-all block group"
                   >
                     <div className="flex items-center gap-3 mb-4">
-                      <Avatar name={twin.name} size="lg" />
+                      <Avatar name={twin.name} src={twin.photo_url} size="lg" />
                       <div className="min-w-0">
                         <p className="font-display font-700 text-[#0F0F23] group-hover:text-[#A855F7] transition-colors flex items-center gap-1.5">
                           <span className="truncate">{twin.name}</span>

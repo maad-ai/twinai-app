@@ -11,8 +11,11 @@ import {
   EyeOff,
   Link2,
   Copy,
+  Camera,
+  X,
 } from 'lucide-react';
 import { PUBLIC_THEMES } from '@/lib/themes';
+import { Avatar } from '@/components/ui/Avatar';
 
 interface Socials {
   instagram?: string | null;
@@ -29,6 +32,7 @@ interface TwinData {
   tagline: string | null;
   niche: string;
   status: string;
+  photo_url?: string | null;
   settings: {
     welcome_message?: string;
     public_profile?: { bio?: string | null; socials?: Socials; theme?: string };
@@ -61,6 +65,9 @@ export default function PublicPageEditorPage() {
   const [socials, setSocials] = useState<Socials>({});
   const [theme, setTheme] = useState('clean');
   const [isLive, setIsLive] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -76,6 +83,7 @@ export default function PublicPageEditorPage() {
           setSocials(t.settings?.public_profile?.socials || {});
           setTheme(t.settings?.public_profile?.theme || 'clean');
           setIsLive(t.status === 'active');
+          setPhotoUrl(t.photo_url || null);
         }
       }
       setLoading(false);
@@ -127,6 +135,41 @@ export default function PublicPageEditorPage() {
     } catch {
       /* ignore */
     }
+  }
+
+  async function uploadPhoto(file: File) {
+    if (file.size > 2 * 1024 * 1024) {
+      setPhotoError('Image must be under 2MB.');
+      return;
+    }
+    setPhotoBusy(true);
+    setPhotoError(null);
+    try {
+      const form = new FormData();
+      form.append('photo', file);
+      const res = await fetch('/api/twin/photo', { method: 'POST', body: form });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.url) {
+        setPhotoUrl(data.url);
+      } else {
+        setPhotoError(data.error || 'Upload failed — try again.');
+      }
+    } catch {
+      setPhotoError('Upload failed — check your connection.');
+    }
+    setPhotoBusy(false);
+  }
+
+  async function removePhoto() {
+    setPhotoBusy(true);
+    setPhotoError(null);
+    try {
+      const res = await fetch('/api/twin/photo', { method: 'DELETE' });
+      if (res.ok) setPhotoUrl(null);
+    } catch {
+      /* ignore */
+    }
+    setPhotoBusy(false);
   }
 
   if (loading) {
@@ -223,6 +266,48 @@ export default function PublicPageEditorPage() {
             {isLive ? 'Unpublish' : 'Publish page'}
           </button>
         </div>
+      </div>
+
+      {/* Photo */}
+      <div className="card rounded-2xl p-6 mb-6">
+        <h2 className="font-display font-700 text-[#0F0F23] mb-1">Profile photo</h2>
+        <p className="text-xs text-[#94A3B8] mb-4">
+          Shown on your public page, in Explore, and on your share card. JPEG/PNG/WebP, max 2MB.
+        </p>
+        <div className="flex items-center gap-4">
+          <Avatar name={twin.name} src={photoUrl} size="xl" />
+          <div className="flex items-center gap-2">
+            <label className="gradient-btn text-white text-sm font-600 px-4 py-2.5 rounded-xl flex items-center gap-2 cursor-pointer">
+              {photoBusy ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Camera className="w-4 h-4" aria-hidden="true" />
+              )}
+              {photoUrl ? 'Change photo' : 'Upload photo'}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                disabled={photoBusy}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) uploadPhoto(f);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+            {photoUrl && (
+              <button
+                onClick={removePhoto}
+                disabled={photoBusy}
+                className="text-sm font-600 px-3.5 py-2.5 rounded-xl border border-black/10 text-[#64748B] hover:border-black/20 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <X className="w-3.5 h-3.5" aria-hidden="true" /> Remove
+              </button>
+            )}
+          </div>
+        </div>
+        {photoError && <p className="text-sm text-red-600 mt-3">{photoError}</p>}
       </div>
 
       {/* Profile fields */}

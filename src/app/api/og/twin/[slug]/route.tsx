@@ -9,7 +9,7 @@ export async function GET(
 ) {
   const { slug } = await params;
   const supabase = createAdminClient();
-  const OG_COLUMNS = 'name, slug, tagline, niche, monthly_price_cents, status';
+  const OG_COLUMNS = 'name, slug, tagline, niche, monthly_price_cents, status, photo_url';
   // Prefer `certified`, but the column may not exist yet (migration 003).
   let { data: twin, error } = await supabase
     .from('twins')
@@ -46,10 +46,27 @@ export async function GET(
           fontFamily: 'sans-serif',
         }}
       >
-        {/* Avatar circle */}
+        {/* Avatar circle — photo when set, initial otherwise */}
+        {twin.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={twin.photo_url}
+            alt=""
+            width={140}
+            height={140}
+            style={{
+              width: '140px',
+              height: '140px',
+              borderRadius: '999px',
+              objectFit: 'cover',
+              marginBottom: '28px',
+              border: '4px solid rgba(255,255,255,0.15)',
+            }}
+          />
+        ) : null}
         <div
           style={{
-            display: 'flex',
+            display: twin.photo_url ? 'none' : 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             width: '140px',

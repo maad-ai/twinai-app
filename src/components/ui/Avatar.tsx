@@ -25,16 +25,31 @@ const VARIANT_CLASSES = {
 
 export function Avatar({
   name,
+  src,
   size = 'md',
   variant = 'brand',
   className,
 }: {
   name: string;
+  /** Photo URL — falls back to the initial when absent. */
+  src?: string | null;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   variant?: 'brand' | 'neutral';
   className?: string;
 }) {
   const v = VARIANT_CLASSES[variant];
+
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={name}
+        className={`${SIZE_CLASSES[size]} rounded-full object-cover flex-shrink-0${className ? ` ${className}` : ''}`}
+      />
+    );
+  }
+
   return (
     <div
       className={`${SIZE_CLASSES[size]} rounded-full ${v.circle} flex items-center justify-center flex-shrink-0${className ? ` ${className}` : ''}`}

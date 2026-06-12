@@ -105,7 +105,7 @@ export default function TwinProfilePage() {
     <div className="p-6 md:p-8 max-w-lg mx-auto">
       {/* Profile header */}
       <div className="text-center mb-8">
-        <Avatar name={twin.name} size="xl" className="mx-auto mb-4" />
+        <Avatar name={twin.name} src={twin.photo_url} size="xl" className="mx-auto mb-4" />
         <h1 className="font-display font-800 text-2xl text-[#0F0F23] mb-1 flex items-center justify-center gap-1.5">
           {twin.name}
           {twin.certified ? <CertifiedBadge /> : null}

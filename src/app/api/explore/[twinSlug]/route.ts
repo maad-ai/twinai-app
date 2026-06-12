@@ -10,7 +10,7 @@ export async function GET(
   const supabase = createAdminClient();
 
   const TWIN_COLUMNS =
-    'id, name, slug, tagline, niche, monthly_price_cents, total_subscribers, total_messages, settings, status';
+    'id, name, slug, tagline, niche, monthly_price_cents, total_subscribers, total_messages, settings, status, photo_url';
 
   // Prefer `certified`, but the column may not exist yet (migration 003) —
   // fall back to the base column list so this route never 500s.

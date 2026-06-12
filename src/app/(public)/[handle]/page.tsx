@@ -84,7 +84,7 @@ const SAMPLE_QUESTIONS: Record<string, string[]> = {
 };
 
 const TWIN_COLUMNS =
-  'id, name, slug, tagline, niche, monthly_price_cents, total_subscribers, total_messages, settings, status';
+  'id, name, slug, tagline, niche, monthly_price_cents, total_subscribers, total_messages, settings, status, photo_url';
 
 interface PublicTwin {
   id: string;
@@ -97,6 +97,7 @@ interface PublicTwin {
   total_messages: number;
   settings: Record<string, any> | null;
   status: string;
+  photo_url: string | null;
   /** Optional: the DB column may not exist yet (migration 003). */
   certified?: boolean;
 }
@@ -225,6 +226,7 @@ export default async function PublicTwinPage({
         <div className="text-center mb-7">
           <Avatar
             name={twin.name}
+            src={twin.photo_url}
             size="xl"
             className={`mx-auto mb-4 ring-4 shadow-lg ${c.avatarRing}`}
           />
@@ -299,7 +301,7 @@ export default async function PublicTwinPage({
         {/* Welcome message preview */}
         <div className={`rounded-2xl p-4 mb-7 ${c.card}`}>
           <div className="flex gap-2.5">
-            <Avatar name={twin.name} size="sm" className="mt-0.5" />
+            <Avatar name={twin.name} src={twin.photo_url} size="sm" className="mt-0.5" />
             <div className={`rounded-2xl rounded-tl-md px-3.5 py-2.5 text-sm leading-snug ${c.bubble}`}>
               {welcome}
             </div>
