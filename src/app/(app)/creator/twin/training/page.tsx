@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Upload, FileText, Link2, Loader2, Check, Trash2, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Upload, FileText, Video, Loader2, Check, Trash2, AlertCircle, AtSign } from 'lucide-react';
 
 type ContentItem = {
   id: string;
@@ -12,18 +12,39 @@ type ContentItem = {
   created_at: string;
 };
 
+type Tab = 'text' | 'youtube' | 'social';
+
 export default function TrainingPage() {
-  const [activeTab, setActiveTab] = useState<'text' | 'url'>('text');
+  const [activeTab, setActiveTab] = useState<Tab>('text');
   const [textContent, setTextContent] = useState('');
   const [urlContent, setUrlContent] = useState('');
+  const [platform, setPlatform] = useState<'tiktok' | 'instagram'>('tiktok');
+  const [handle, setHandle] = useState('');
+  const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<ContentItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(true);
   const [error, setError] = useState('');
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     fetchItems();
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, []);
+
+  // Auto-poll while anything is still processing (social imports resolve
+  // server-side on each GET).
+  useEffect(() => {
+    const anyProcessing = items.some((i) => i.status === 'processing');
+    if (anyProcessing && !pollRef.current) {
+      pollRef.current = setInterval(fetchItems, 5000);
+    } else if (!anyProcessing && pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, [items]);
 
   async function fetchItems() {
     try {
@@ -43,12 +64,19 @@ export default function TrainingPage() {
     setLoading(true);
     setError('');
 
-    const body = activeTab === 'text'
-      ? { sourceType: 'text', rawText: textContent }
-      : { sourceType: 'youtube', sourceUrl: urlContent };
+    let endpoint = '/api/twin/train';
+    let body: Record<string, unknown>;
+    if (activeTab === 'text') {
+      body = { sourceType: 'text', rawText: textContent };
+    } else if (activeTab === 'youtube') {
+      body = { sourceType: 'youtube', sourceUrl: urlContent };
+    } else {
+      endpoint = '/api/twin/connect-social';
+      body = { platform, handle };
+    }
 
     try {
-      const res = await fetch('/api/twin/train', {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -57,6 +85,8 @@ export default function TrainingPage() {
       if (res.ok) {
         setTextContent('');
         setUrlContent('');
+        setHandle('');
+        setConsent(false);
         fetchItems();
       } else {
         const data = await res.json();
@@ -74,6 +104,14 @@ export default function TrainingPage() {
     fetchItems();
   }
 
+  const submitDisabled =
+    loading ||
+    (activeTab === 'text'
+      ? !textContent.trim()
+      : activeTab === 'youtube'
+        ? !urlContent.trim()
+        : !handle.trim() || !consent);
+
   const statusIcon = (status: string) => {
     switch (status) {
       case 'embedded': return <Check className="w-4 h-4 text-[#22C55E]" />;
@@ -82,6 +120,12 @@ export default function TrainingPage() {
       default: return <Loader2 className="w-4 h-4 text-[#94A3B8]" />;
     }
   };
+
+  const tabs: { key: Tab; label: string; icon: typeof FileText }[] = [
+    { key: 'text', label: 'Paste Text', icon: FileText },
+    { key: 'youtube', label: 'YouTube', icon: Video },
+    { key: 'social', label: 'TikTok / Instagram', icon: AtSign },
+  ];
 
   return (
     <div className="p-6 md:p-8 max-w-3xl">
@@ -93,32 +137,25 @@ export default function TrainingPage() {
       </p>
 
       {/* Tab selector */}
-      <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setActiveTab('text')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-500 transition-all ${
-            activeTab === 'text'
-              ? 'bg-[#A855F7]/10 text-[#A855F7]'
-              : 'text-[#94A3B8] hover:bg-[#F1F5F9]'
-          }`}
-        >
-          <FileText className="w-4 h-4" /> Paste Text
-        </button>
-        <button
-          onClick={() => setActiveTab('url')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-500 transition-all ${
-            activeTab === 'url'
-              ? 'bg-[#A855F7]/10 text-[#A855F7]'
-              : 'text-[#94A3B8] hover:bg-[#F1F5F9]'
-          }`}
-        >
-          <Link2 className="w-4 h-4" /> Add URL
-        </button>
+      <div className="flex flex-wrap gap-2 mb-6">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => { setActiveTab(t.key); setError(''); }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-500 transition-all ${
+              activeTab === t.key
+                ? 'bg-[#A855F7]/10 text-[#A855F7]'
+                : 'text-[#94A3B8] hover:bg-[#F1F5F9]'
+            }`}
+          >
+            <t.icon className="w-4 h-4" /> {t.label}
+          </button>
+        ))}
       </div>
 
       {/* Input area */}
       <div className="card rounded-2xl p-6 mb-6">
-        {activeTab === 'text' ? (
+        {activeTab === 'text' && (
           <div>
             <label className="block text-sm font-500 text-[#0F0F23] mb-2">
               Paste your content
@@ -135,7 +172,9 @@ export default function TrainingPage() {
               {textContent.length > 0 && ` — ~${Math.ceil(textContent.length / 4)} tokens`}
             </p>
           </div>
-        ) : (
+        )}
+
+        {activeTab === 'youtube' && (
           <div>
             <label className="block text-sm font-500 text-[#0F0F23] mb-2">
               YouTube video URL
@@ -148,25 +187,71 @@ export default function TrainingPage() {
               className="w-full px-4 py-3 rounded-xl bg-[#F8FAFC] border border-black/5 text-[#0F0F23] placeholder:text-[#94A3B8]/60 focus:outline-none focus:border-[#A855F7]/40 transition-all text-sm"
             />
             <p className="text-xs text-[#94A3B8] mt-2">
-              We pull the transcript automatically — works with any public video that has
-              captions. TikTok/Instagram coming next.
+              We pull the transcript automatically — works with any public video that has captions.
             </p>
           </div>
         )}
 
-        {error && (
-          <p className="text-sm text-[#FF6B6B] mt-3">{error}</p>
+        {activeTab === 'social' && (
+          <div>
+            <label className="block text-sm font-500 text-[#0F0F23] mb-2">
+              Import from your social account
+            </label>
+            {/* Platform toggle */}
+            <div className="flex gap-2 mb-3">
+              {(['tiktok', 'instagram'] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPlatform(p)}
+                  className={`text-sm font-600 px-4 py-2 rounded-full border transition-colors capitalize ${
+                    platform === p
+                      ? 'bg-[#A855F7] border-[#A855F7] text-white'
+                      : 'bg-white border-black/10 text-[#475569] hover:border-[#A855F7]/40'
+                  }`}
+                >
+                  {p === 'tiktok' ? 'TikTok' : 'Instagram'}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center rounded-xl bg-[#F8FAFC] border border-black/5 focus-within:border-[#A855F7]/40 transition-all">
+              <span className="pl-4 text-[#94A3B8]">@</span>
+              <input
+                type="text"
+                value={handle}
+                onChange={(e) => setHandle(e.target.value.replace(/^@/, ''))}
+                placeholder="yourhandle"
+                className="flex-1 px-2 py-3 bg-transparent text-[#0F0F23] placeholder:text-[#94A3B8]/60 focus:outline-none text-sm"
+              />
+            </div>
+            <p className="text-xs text-[#94A3B8] mt-2">
+              We import the captions from your latest public posts to learn your voice. Takes a
+              minute or two.
+            </p>
+            <label className="flex items-start gap-2 mt-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+                className="mt-0.5 accent-[#A855F7]"
+              />
+              <span className="text-xs text-[#64748B]">
+                This is my own account and I have the right to train my twin on this content.
+              </span>
+            </label>
+          </div>
         )}
+
+        {error && <p className="text-sm text-[#FF6B6B] mt-3">{error}</p>}
 
         <button
           onClick={handleSubmit}
-          disabled={loading || (activeTab === 'text' ? !textContent.trim() : !urlContent.trim())}
+          disabled={submitDisabled}
           className="w-full gradient-btn text-white font-600 py-3 rounded-xl mt-4 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {loading ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
+            <><Loader2 className="w-4 h-4 animate-spin" /> {activeTab === 'social' ? 'Starting import...' : 'Processing...'}</>
           ) : (
-            <><Upload className="w-4 h-4" /> Add Content</>
+            <><Upload className="w-4 h-4" /> {activeTab === 'social' ? 'Import my posts' : 'Add Content'}</>
           )}
         </button>
       </div>
@@ -206,7 +291,7 @@ export default function TrainingPage() {
                       item.status === 'error' ? 'bg-[#FF6B6B]/20 text-[#FF6B6B]' :
                       'bg-[#A855F7]/10 text-[#A855F7]'
                     }`}>
-                      {item.status}
+                      {item.status === 'processing' ? 'importing…' : item.status}
                     </span>
                   </div>
                   <p className="text-sm text-[#0F0F23] truncate">

@@ -4,6 +4,7 @@ import { getProfileByClerkId, getCreatorTwin } from '@/lib/db';
 import { parseBody, trainContentSchema } from '@/lib/validators';
 import { uploadRateLimit, checkRateLimit } from '@/lib/rate-limit';
 import { extractVideoId, fetchYouTubeTranscript } from '@/lib/youtube';
+import { getRunStatus, collectScrapedText, type SocialPlatform } from '@/lib/apify';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,60 @@ export async function GET() {
     .select('*')
     .eq('twin_id', twin.id)
     .order('created_at', { ascending: false });
+
+  // Lazily resolve any social imports still running on Apify. Bounded
+  // (few rows) and fully guarded so a flaky scrape never breaks the list.
+  const pending = (content || []).filter(
+    (c) => c.status === 'processing' && c.metadata?.apify_run_id
+  );
+  if (pending.length > 0) {
+    await Promise.all(
+      pending.map(async (row) => {
+        try {
+          const status = await getRunStatus(row.metadata.apify_run_id as string);
+          if (status === 'RUNNING') return;
+          if (status === 'FAILED') {
+            await supabase
+              .from('training_content')
+              .update({ status: 'error' })
+              .eq('id', row.id);
+            row.status = 'error';
+            return;
+          }
+          // SUCCEEDED → pull captions
+          const platform = (row.metadata.platform as SocialPlatform) || 'tiktok';
+          const { text, count } = await collectScrapedText(
+            platform,
+            row.metadata.apify_dataset_id as string
+          );
+          if (!text || count === 0) {
+            await supabase
+              .from('training_content')
+              .update({
+                status: 'error',
+                metadata: { ...row.metadata, error: 'No public posts found' },
+              })
+              .eq('id', row.id);
+            row.status = 'error';
+            return;
+          }
+          const chunks = chunkText(text, 512, 64);
+          await supabase
+            .from('training_content')
+            .update({
+              status: 'embedded',
+              raw_text: text,
+              metadata: { ...row.metadata, posts: count, chunks: chunks.length, characters: text.length },
+            })
+            .eq('id', row.id);
+          row.status = 'embedded';
+          row.raw_text = text;
+        } catch (err) {
+          console.error('Apify resolve error:', err);
+        }
+      })
+    );
+  }
 
   return Response.json({ content: content || [] });
 }

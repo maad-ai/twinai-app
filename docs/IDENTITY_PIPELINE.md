@@ -33,9 +33,15 @@ reconstruire le prompt ailleurs.
    `chunks` avec vecteurs, RPC `search_twin_content`.
 2. **Chaîne YouTube complète** — coller l'URL de la chaîne → lister les
    N dernières vidéos (youtubei.js `getChannel`) → ingérer chaque transcript.
-3. **TikTok / Instagram** — pas d'API publique fiable : passer par Apify
-   (acteurs `clockworks/tiktok-scraper`, `apify/instagram-scraper`) avec une
-   clé APIFY_TOKEN. Coût ~qq ¢/profil. Ingestion des captions/descriptions.
+3. ~~**TikTok / Instagram**~~ ✅ FAIT (2026-06-13) — `lib/apify.ts` + route
+   `/api/twin/connect-social` (lance le run async) + résolution paresseuse
+   dans `GET /api/twin/train` (vérifie le run, récupère les captions quand
+   SUCCEEDED). UI: onglet « TikTok / Instagram » avec @handle + consentement
+   + polling auto 5s. Acteurs `clockworks~tiktok-scraper` (item.text) et
+   `apify~instagram-scraper` (item.caption). **DORMANT jusqu'à APIFY_TOKEN
+   sur Vercel** (sans: POST → 503 propre). Marc: créer compte apify.com
+   (free tier ~$5/mois de crédit), copier le token, l'ajouter dans Vercel
+   env du projet `app` (+ .env.local pour tester en local).
 4. **Vidéos sans captions** — télécharger l'audio + Whisper (ou Deepgram).
 5. **Auto-refresh** — cron hebdo qui ré-ingère les nouvelles vidéos des
    sources connectées.

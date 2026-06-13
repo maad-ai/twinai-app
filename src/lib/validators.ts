@@ -41,6 +41,12 @@ export const trainContentSchema = z.object({
   sourceUrl: z.string().url().max(500).optional().nullable(),
 });
 
+export const connectSocialSchema = z.object({
+  platform: z.enum(['tiktok', 'instagram']),
+  /** @handle or a profile URL — normalized server-side. */
+  handle: z.string().trim().min(1).max(120),
+});
+
 export const moderateSchema = z.object({
   conversationId: z.string().uuid(),
   action: z.enum(['flag', 'unflag']),
