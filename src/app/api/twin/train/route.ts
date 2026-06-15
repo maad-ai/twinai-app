@@ -5,6 +5,9 @@ import { parseBody, trainContentSchema } from '@/lib/validators';
 import { uploadRateLimit, checkRateLimit } from '@/lib/rate-limit';
 import { extractVideoId, fetchYouTubeTranscript } from '@/lib/youtube';
 import { getRunStatus, collectScrapedText, type SocialPlatform } from '@/lib/apify';
+import { embed } from '@/lib/embeddings';
+import { RAG_CHUNK_TOKENS, RAG_CHUNK_OVERLAP } from '@/lib/constants';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,13 +74,13 @@ export async function GET() {
             row.status = 'error';
             return;
           }
-          const chunks = chunkText(text, 512, 64);
+          const chunkCount = await embedAndStoreChunks(supabase, twin.id, row.id, text);
           await supabase
             .from('training_content')
             .update({
               status: 'embedded',
               raw_text: text,
-              metadata: { ...row.metadata, posts: count, chunks: chunks.length, characters: text.length },
+              metadata: { ...row.metadata, posts: count, chunks: chunkCount, characters: text.length },
             })
             .eq('id', row.id);
           row.status = 'embedded';
@@ -167,28 +170,17 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Failed to add content' }, { status: 500 });
   }
 
-  // Process text content (typed or fetched from YouTube): chunk and store
+  // Process text content (typed or fetched from YouTube): chunk, embed, store
   if (finalText) {
     try {
-      const chunks = chunkText(finalText, 512, 64);
-
-      // Store chunks as simple text (embeddings will be added when AI API is configured)
-      for (const chunk of chunks) {
-        await supabase
-          .from('training_content')
-          .update({ status: 'embedded' })
-          .eq('id', content.id);
-      }
-
-      // Mark as embedded (for now without actual vector embeddings)
+      const chunkCount = await embedAndStoreChunks(supabase, twin.id, content.id, finalText);
       await supabase
         .from('training_content')
         .update({
           status: 'embedded',
-          metadata: { ...metadata, chunks: chunks.length, characters: finalText.length },
+          metadata: { ...metadata, chunks: chunkCount, characters: finalText.length },
         })
         .eq('id', content.id);
-
     } catch (err) {
       console.error('Processing error:', err);
       await supabase
@@ -256,4 +248,49 @@ function chunkText(text: string, maxTokens: number, overlap: number): string[] {
   }
 
   return chunks;
+}
+
+/**
+ * Chunk → embed (Voyage) → store in twin_chunks for vector search.
+ * Idempotent: replaces any existing chunks for this content_id.
+ * Never throws to the caller, and no-ops gracefully when embeddings or the
+ * pgvector table aren't available (chat falls back to raw_text). Returns the
+ * chunk count for metadata.
+ */
+export async function embedAndStoreChunks(
+  supabase: SupabaseClient,
+  twinId: string,
+  contentId: string,
+  text: string
+): Promise<number> {
+  const chunks = chunkText(text, RAG_CHUNK_TOKENS, RAG_CHUNK_OVERLAP);
+  if (chunks.length === 0) return 0;
+
+  const vectors = await embed(chunks, 'document');
+  if (!vectors) return chunks.length; // embeddings unavailable → skip vector store
+
+  try {
+    // Re-embed cleanly (e.g. backfill or content update)
+    await supabase.from('twin_chunks').delete().eq('content_id', contentId);
+
+    const rows = chunks.map((chunk_text, i) => ({
+      twin_id: twinId,
+      content_id: contentId,
+      chunk_text,
+      // pgvector accepts its text format "[1,2,3]" via supabase-js
+      embedding: JSON.stringify(vectors[i]),
+    }));
+
+    for (let i = 0; i < rows.length; i += 100) {
+      const { error } = await supabase.from('twin_chunks').insert(rows.slice(i, i + 100));
+      if (error) {
+        console.error('twin_chunks insert error (table missing? run migration 006):', error.message);
+        break;
+      }
+    }
+  } catch (err) {
+    console.error('embedAndStoreChunks error:', err);
+  }
+
+  return chunks.length;
 }

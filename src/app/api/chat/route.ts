@@ -6,6 +6,7 @@ import { encrypt, decodeMessage } from '@/lib/encryption';
 import { parseBody, sendMessageSchema } from '@/lib/validators';
 import { chatRateLimit, checkRateLimit } from '@/lib/rate-limit';
 import { CHAT_HISTORY_LIMIT, RAG_TOP_K } from '@/lib/constants';
+import { embedQuery } from '@/lib/embeddings';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -116,15 +117,33 @@ export async function POST(req: Request) {
     });
   }
 
-  // RAG context (TODO Vague 3: vector search; for now top-K raw chunks)
-  const { data: trainingContent } = await supabase
-    .from('training_content')
-    .select('raw_text')
-    .eq('twin_id', body.twinId)
-    .eq('status', 'embedded')
-    .limit(RAG_TOP_K);
-
-  const context = (trainingContent || []).map((c) => c.raw_text).filter(Boolean) as string[];
+  // RAG context: real vector search over the twin's chunks. Falls back to a
+  // top-K raw_text dump when embeddings/pgvector aren't available, so chat
+  // never breaks before VOYAGE_API_KEY + migration 006 are in place.
+  let context: string[] = [];
+  const queryVec = await embedQuery(body.message);
+  if (queryVec) {
+    const { data: matches, error: matchError } = await supabase.rpc('match_twin_chunks', {
+      p_twin_id: body.twinId,
+      query_embedding: JSON.stringify(queryVec),
+      match_count: RAG_TOP_K,
+    });
+    if (!matchError && matches) {
+      context = (matches as { chunk_text: string }[]).map((m) => m.chunk_text).filter(Boolean);
+    } else if (matchError) {
+      console.error('match_twin_chunks failed (run migration 006?):', matchError.message);
+    }
+  }
+  if (context.length === 0) {
+    // Fallback: legacy raw_text dump
+    const { data: trainingContent } = await supabase
+      .from('training_content')
+      .select('raw_text')
+      .eq('twin_id', body.twinId)
+      .eq('status', 'embedded')
+      .limit(RAG_TOP_K);
+    context = (trainingContent || []).map((c) => c.raw_text).filter(Boolean) as string[];
+  }
 
   // Recent message history (decrypt)
   const { data: recentMessages } = await supabase

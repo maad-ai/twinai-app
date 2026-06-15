@@ -27,10 +27,14 @@ export const MAX_RESPONSE_TOKENS = 1024;
 export const CHAT_HISTORY_LIMIT = 10; // recent messages kept in context
 export const RAG_CHUNK_TOKENS = 512;
 export const RAG_CHUNK_OVERLAP = 64;
-export const RAG_TOP_K = 5;
+export const RAG_TOP_K = 8;
 
 // AI model (update when new models ship)
 export const CHAT_MODEL = 'claude-sonnet-4-6';
+
+// Embeddings (Voyage AI — recommended pairing with Claude)
+export const EMBEDDING_MODEL = 'voyage-3.5-lite';
+export const EMBEDDING_DIM = 1024;
 
 // App URL
 export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.twiinn.ai';
