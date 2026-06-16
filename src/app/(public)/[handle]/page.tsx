@@ -318,6 +318,9 @@ export default async function PublicTwinPage({
   const socialEntries = Object.entries(socials).filter(
     ([key, value]) => value && SOCIAL_ICONS[key]
   ) as [string, string][];
+  const cover: string | null = publicProfile.cover || null;
+  const postCount = posts.length;
+  const totalLikes = posts.reduce((sum, p) => sum + p.likeCount, 0);
 
   /* Theme tokens — light/dark variants for every surface on this page */
   const theme = getTheme(publicProfile.theme);
@@ -354,8 +357,21 @@ export default async function PublicTwinPage({
   return (
     <div className="min-h-[100dvh]" style={{ background: theme.background }}>
       <main className="max-w-md mx-auto px-5 py-10">
+        {/* Cover banner */}
+        <div className="-mx-5 -mt-10 mb-0 h-36 sm:h-44 overflow-hidden relative">
+          {cover ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={cover} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div
+              className="w-full h-full"
+              style={{ background: 'linear-gradient(135deg, #A855F7 0%, #00D4FF 100%)' }}
+            />
+          )}
+        </div>
+
         {/* Header */}
-        <div className="text-center mb-7">
+        <div className="text-center mb-7 -mt-12">
           <Avatar
             name={twin.name}
             src={twin.photo_url}
@@ -385,6 +401,18 @@ export default async function PublicTwinPage({
           </div>
           {twin.tagline && (
             <p className={`text-[15px] max-w-xs mx-auto ${c.body}`}>{twin.tagline}</p>
+          )}
+
+          {/* Profile stats */}
+          {postCount > 0 && (
+            <div className="flex items-center justify-center gap-4 text-[13px] mt-3">
+              <span className={c.body}>
+                <span className={`font-700 ${c.heading}`}>{postCount}</span> posts
+              </span>
+              <span className={c.body}>
+                <span className={`font-700 ${c.heading}`}>{totalLikes}</span> likes
+              </span>
+            </div>
           )}
 
           {/* Social links — proof it's really them */}

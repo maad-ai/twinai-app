@@ -35,7 +35,7 @@ interface TwinData {
   photo_url?: string | null;
   settings: {
     welcome_message?: string;
-    public_profile?: { bio?: string | null; socials?: Socials; theme?: string };
+    public_profile?: { bio?: string | null; socials?: Socials; theme?: string; cover?: string | null };
   };
 }
 
@@ -68,6 +68,9 @@ export default function PublicPageEditorPage() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [coverBusy, setCoverBusy] = useState(false);
+  const [coverError, setCoverError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -84,6 +87,7 @@ export default function PublicPageEditorPage() {
           setTheme(t.settings?.public_profile?.theme || 'clean');
           setIsLive(t.status === 'active');
           setPhotoUrl(t.photo_url || null);
+          setCoverUrl(t.settings?.public_profile?.cover || null);
         }
       }
       setLoading(false);
@@ -170,6 +174,41 @@ export default function PublicPageEditorPage() {
       /* ignore */
     }
     setPhotoBusy(false);
+  }
+
+  async function uploadCover(file: File) {
+    if (file.size > 4 * 1024 * 1024) {
+      setCoverError('Cover must be under 4MB.');
+      return;
+    }
+    setCoverBusy(true);
+    setCoverError(null);
+    try {
+      const form = new FormData();
+      form.append('cover', file);
+      const res = await fetch('/api/twin/cover', { method: 'POST', body: form });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.url) {
+        setCoverUrl(data.url);
+      } else {
+        setCoverError(data.error || 'Upload failed — try again.');
+      }
+    } catch {
+      setCoverError('Upload failed — check your connection.');
+    }
+    setCoverBusy(false);
+  }
+
+  async function removeCover() {
+    setCoverBusy(true);
+    setCoverError(null);
+    try {
+      const res = await fetch('/api/twin/cover', { method: 'DELETE' });
+      if (res.ok) setCoverUrl(null);
+    } catch {
+      /* ignore */
+    }
+    setCoverBusy(false);
   }
 
   if (loading) {
@@ -266,6 +305,53 @@ export default function PublicPageEditorPage() {
             {isLive ? 'Unpublish' : 'Publish page'}
           </button>
         </div>
+      </div>
+
+      {/* Cover banner */}
+      <div className="card rounded-2xl p-6 mb-6">
+        <h2 className="font-display font-700 text-[#0F0F23] mb-1">Cover banner</h2>
+        <p className="text-xs text-[#94A3B8] mb-4">
+          The wide image across the top of your page. JPEG/PNG/WebP, max 4MB.
+        </p>
+        <div className="relative h-32 rounded-xl overflow-hidden mb-3 bg-gradient-to-br from-[#A855F7] to-[#00D4FF] flex items-center justify-center">
+          {coverUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-white/80 text-sm font-600">No cover yet</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="gradient-btn text-white text-sm font-600 px-4 py-2.5 rounded-xl flex items-center gap-2 cursor-pointer">
+            {coverBusy ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Camera className="w-4 h-4" aria-hidden="true" />
+            )}
+            {coverUrl ? 'Change cover' : 'Upload cover'}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              disabled={coverBusy}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) uploadCover(f);
+                e.target.value = '';
+              }}
+            />
+          </label>
+          {coverUrl && (
+            <button
+              onClick={removeCover}
+              disabled={coverBusy}
+              className="text-sm font-600 px-3.5 py-2.5 rounded-xl border border-black/10 text-[#64748B] hover:border-black/20 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <X className="w-3.5 h-3.5" aria-hidden="true" /> Remove
+            </button>
+          )}
+        </div>
+        {coverError && <p className="text-sm text-red-600 mt-3">{coverError}</p>}
       </div>
 
       {/* Photo */}
