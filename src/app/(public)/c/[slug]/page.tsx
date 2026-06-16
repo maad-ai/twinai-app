@@ -67,13 +67,15 @@ export default async function CreatorFeedPage({
 
   const viewerProfileId = await getViewerProfileId();
   const isOwner = !!viewerProfileId && viewerProfileId === twin.creator_id;
-  const [posts, subscribed] = await Promise.all([
-    getPostsWithSocial(twin.id, viewerProfileId),
-    viewerProfileId ? isActiveSubscriber(viewerProfileId, twin.id) : Promise.resolve(false),
-  ]);
+  const subscribed = viewerProfileId ? await isActiveSubscriber(viewerProfileId, twin.id) : false;
   const canSeeMembers = subscribed || isOwner;
+  // canSeeMembers is computed BEFORE fetching posts so locked rows get their
+  // body/media stripped server-side (no paywall bypass via the RSC payload).
+  const posts = await getPostsWithSocial(twin.id, viewerProfileId, canSeeMembers);
 
-  const tiers: PricingTier[] = twin.settings?.pricing_tiers || DEFAULT_TIERS;
+  const tiers: PricingTier[] = twin.settings?.pricing_tiers?.length
+    ? twin.settings.pricing_tiers
+    : DEFAULT_TIERS;
   const cheapest = tiers.reduce((a, b) => (a.cents < b.cents ? a : b));
   const publicProfile = twin.settings?.public_profile || {};
   const socials: Socials = publicProfile.socials || {};

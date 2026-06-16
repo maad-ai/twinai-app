@@ -132,7 +132,7 @@ export default function TwinProfilePage() {
 
       {/* Pricing tiers */}
       <div className="mb-6">
-        <p className="text-sm font-600 text-[#0F0F23] mb-3 text-center">Choose your plan</p>
+        <p className="text-sm font-600 text-[#0F0F23] mb-3 text-center">Choose your spot</p>
         <div className="space-y-2">
           {tiers.map((tier, i) => (
             <button
@@ -190,7 +190,7 @@ export default function TwinProfilePage() {
       </button>
 
       <p className="text-xs text-[#94A3B8] text-center mt-3">
-        Cancel anytime. Extra message packs available.
+        Cancel anytime.
       </p>
     </div>
   );

@@ -112,7 +112,8 @@ export function timeAgo(iso: string): string {
  */
 export async function getPostsWithSocial(
   twinId: string,
-  viewerProfileId: string | null
+  viewerProfileId: string | null,
+  canSeeMembers: boolean
 ): Promise<PostWithSocial[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -142,12 +143,20 @@ export async function getPostsWithSocial(
     commentCount[cm.post_id] = (commentCount[cm.post_id] || 0) + 1;
   });
 
-  return posts.map((p) => ({
-    ...p,
-    likeCount: likeCount[p.id] || 0,
-    likedByMe: !!likedByMe[p.id],
-    commentCount: commentCount[p.id] || 0,
-  }));
+  return posts.map((p) => {
+    // SECURITY: never ship a members-only post's body/media to someone who
+    // can't see it — client-component props are serialized into the HTML, and
+    // the storage bucket is public, so a leaked media_url = paywall bypass.
+    const locked = p.visibility === 'subscribers' && !canSeeMembers;
+    return {
+      ...p,
+      body: locked ? null : p.body,
+      media_url: locked ? null : p.media_url,
+      likeCount: likeCount[p.id] || 0,
+      likedByMe: !!likedByMe[p.id],
+      commentCount: commentCount[p.id] || 0,
+    };
+  });
 }
 
 /** The viewer's app profile id (null if anonymous / no profile). Never throws. */
@@ -176,9 +185,38 @@ export async function isActiveSubscriber(profileId: string, twinId: string): Pro
     .select('id')
     .eq('fan_id', profileId)
     .eq('twin_id', twinId)
-    .eq('status', 'active')
+    .in('status', ['active', 'trialing'])
     .maybeSingle();
   return !!data;
+}
+
+/**
+ * Can this viewer access a post's protected content (read comments, like, comment)?
+ * - Public posts: anyone.
+ * - Members-only posts: the twin's creator or an active subscriber.
+ * Returns { exists } so callers can 404 a missing/guessed post id.
+ */
+export async function canAccessPost(
+  postId: string,
+  viewerProfileId: string | null
+): Promise<{ exists: boolean; ok: boolean }> {
+  const supabase = createAdminClient();
+  const { data: post } = await supabase
+    .from('posts')
+    .select('visibility, twin_id')
+    .eq('id', postId)
+    .maybeSingle();
+  if (!post) return { exists: false, ok: false };
+  if (post.visibility !== 'subscribers') return { exists: true, ok: true };
+  if (!viewerProfileId) return { exists: true, ok: false };
+
+  const { data: twin } = await supabase
+    .from('twins')
+    .select('creator_id')
+    .eq('id', post.twin_id)
+    .maybeSingle();
+  if (twin?.creator_id === viewerProfileId) return { exists: true, ok: true };
+  return { exists: true, ok: await isActiveSubscriber(viewerProfileId, post.twin_id) };
 }
 
 export interface ThemeTokens {

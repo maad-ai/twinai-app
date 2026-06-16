@@ -31,6 +31,12 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Twin not found' }, { status: 404 });
   }
 
+  // media_url must be this twin's own uploaded file — not a hotlink or another
+  // twin's media. upload-url namespaces every file under `${twin.id}/`.
+  if (body.mediaUrl && !body.mediaUrl.includes(`/twin-posts/${twin.id}/`)) {
+    return Response.json({ error: 'Invalid media URL' }, { status: 400 });
+  }
+
   const { data: post, error: insertError } = await supabase
     .from('posts')
     .insert({

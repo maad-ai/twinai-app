@@ -82,7 +82,9 @@ export default async function PublicTwinPage({
   const twin = await getTwin(slug);
   if (!twin) notFound();
 
-  const tiers: PricingTier[] = twin.settings?.pricing_tiers || DEFAULT_TIERS;
+  const tiers: PricingTier[] = twin.settings?.pricing_tiers?.length
+    ? twin.settings.pricing_tiers
+    : DEFAULT_TIERS;
   const cheapest = tiers.reduce((a, b) => (a.cents < b.cents ? a : b));
   const questions = SAMPLE_QUESTIONS[twin.niche?.toLowerCase?.() ?? 'other'] || SAMPLE_QUESTIONS.other;
   const welcome =

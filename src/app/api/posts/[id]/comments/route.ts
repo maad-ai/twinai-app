@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getProfileByClerkId } from '@/lib/db';
+import { canAccessPost, getViewerProfileId } from '@/lib/public-twin';
 import { parseBody, addCommentSchema } from '@/lib/validators';
 import { apiRateLimit, checkRateLimit } from '@/lib/rate-limit';
 
@@ -8,9 +9,15 @@ export const dynamic = 'force-dynamic';
 
 const SELECT = 'id, body, created_at, profile_id, profiles ( display_name, avatar_url )';
 
-/** List a post's comments (public). */
+/** List a post's comments — public posts to anyone, members-only to members. */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+
+  // Don't leak the thread (or commenters' names) of a members-only post.
+  const viewerProfileId = await getViewerProfileId();
+  const access = await canAccessPost(id, viewerProfileId);
+  if (!access.ok) return Response.json({ comments: [] });
+
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('post_comments')
@@ -41,6 +48,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });
   }
+
+  // Can't comment on a post you can't see (or one that doesn't exist).
+  const access = await canAccessPost(id, profile.id);
+  if (!access.exists) return Response.json({ error: 'Post not found' }, { status: 404 });
+  if (!access.ok) return Response.json({ error: 'Members only' }, { status: 403 });
 
   const { data: comment, error: insertError } = await supabase
     .from('post_comments')
