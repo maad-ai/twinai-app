@@ -148,7 +148,7 @@ export function FeedPost({
   }
 
   async function share() {
-    const url = `https://twiinn.ai/@${slug}`;
+    const url = `https://twiinn.ai/c/${slug}`;
     const title = `${twinName} on Twiinn`;
     try {
       if (typeof navigator !== 'undefined' && navigator.share) {

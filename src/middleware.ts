@@ -4,8 +4,9 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/api/webhooks(.*)',
-  // Public creator share pages (twiinn.ai/@handle → app) + their OG images
+  // Public creator pages: /@handle (pitch) + /c/slug (feed) + their OG images
   '/@(.*)',
+  '/c/(.*)',
   '/api/og/(.*)',
 ]);
 

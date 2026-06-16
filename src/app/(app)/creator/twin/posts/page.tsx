@@ -204,7 +204,7 @@ export default function PostsPage() {
         <h1 className="font-display font-800 text-2xl text-[#0F0F23]">Posts</h1>
         {slug && (
           <a
-            href={`/@${slug}`}
+            href={`/c/${slug}`}
             target="_blank"
             rel="noopener noreferrer"
             className="ml-auto text-sm font-600 text-[#A855F7] hover:underline flex items-center gap-1"
@@ -216,7 +216,7 @@ export default function PostsPage() {
       <p className="text-sm text-[#94A3B8] mb-8">
         Share updates with your fans. Public posts pull people in; members-only posts give them a
         reason to subscribe. Everything you post shows on your page at{' '}
-        <span className="font-600 text-[#64748B]">twiinn.ai/@{slug || 'you'}</span>.
+        <span className="font-600 text-[#64748B]">twiinn.ai/c/{slug || 'you'}</span>.
       </p>
 
       {/* Composer */}

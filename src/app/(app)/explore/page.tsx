@@ -77,7 +77,7 @@ function StatLine({ twin }: { twin: ExploreTwin }) {
 function FeaturedCard({ twin }: { twin: ExploreTwin }) {
   return (
     <Link
-      href={`/@${twin.slug}`}
+      href={`/c/${twin.slug}`}
       className="card rounded-2xl p-6 block group relative overflow-hidden hover:border-[#A855F7]/40 transition-all"
     >
       {/* soft violet glow */}
@@ -189,7 +189,7 @@ export default async function ExplorePage() {
                 {rest.map((twin) => (
                   <Link
                     key={twin.id}
-                    href={`/@${twin.slug}`}
+                    href={`/c/${twin.slug}`}
                     className="card rounded-2xl p-6 hover:border-[#A855F7]/20 transition-all block group"
                   >
                     <div className="flex items-center gap-3 mb-4">

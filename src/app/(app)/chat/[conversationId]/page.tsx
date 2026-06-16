@@ -182,11 +182,11 @@ export default function ChatPage() {
         <Link href="/chat" className="text-[#94A3B8] hover:text-[#0F0F23] transition-colors md:hidden">
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <Avatar name={twinName} size="md" href={twinSlug ? `/@${twinSlug}` : undefined} />
+        <Avatar name={twinName} size="md" href={twinSlug ? `/c/${twinSlug}` : undefined} />
         <div className="flex-1 min-w-0">
           {twinSlug ? (
             <Link
-              href={`/@${twinSlug}`}
+              href={`/c/${twinSlug}`}
               className="font-display font-700 text-sm text-[#0F0F23] hover:text-[#A855F7] transition-colors"
             >
               {twinName}

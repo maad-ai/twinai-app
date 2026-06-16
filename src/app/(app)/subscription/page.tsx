@@ -121,12 +121,12 @@ export default function SubscriptionsPage() {
                   <Avatar
                     name={sub.twins?.name || ''}
                     size="md"
-                    href={sub.twins?.slug ? `/@${sub.twins.slug}` : undefined}
+                    href={sub.twins?.slug ? `/c/${sub.twins.slug}` : undefined}
                   />
                   <div>
                     {sub.twins?.slug ? (
                       <Link
-                        href={`/@${sub.twins.slug}`}
+                        href={`/c/${sub.twins.slug}`}
                         className="font-display font-700 text-[#0F0F23] hover:text-[#A855F7] transition-colors"
                       >
                         {sub.twins?.name}
