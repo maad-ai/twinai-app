@@ -8,7 +8,8 @@ import { CertifiedBadge } from '@/components/ui/CertifiedBadge';
 import { formatPrice } from '@/lib/format';
 import { getTheme } from '@/lib/themes';
 import type { PricingTier } from '@/types';
-import { MessageCircle, Users, Sparkles, Check, ArrowRight, Lock, Image as ImageIcon, Film } from 'lucide-react';
+import { MessageCircle, Users, Sparkles, Check, ArrowRight } from 'lucide-react';
+import { FeedPost } from '@/components/public/FeedPost';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,7 +99,7 @@ const SAMPLE_QUESTIONS: Record<string, string[]> = {
 };
 
 const TWIN_COLUMNS =
-  'id, name, slug, tagline, niche, monthly_price_cents, total_subscribers, total_messages, settings, status, photo_url';
+  'id, name, slug, tagline, niche, monthly_price_cents, total_subscribers, total_messages, settings, status, photo_url, creator_id';
 
 interface PublicTwin {
   id: string;
@@ -112,6 +113,7 @@ interface PublicTwin {
   settings: Record<string, any> | null;
   status: string;
   photo_url: string | null;
+  creator_id: string;
   /** Optional: the DB column may not exist yet (migration 003). */
   certified?: boolean;
 }
@@ -146,8 +148,21 @@ interface Post {
   created_at: string;
 }
 
-/** A twin's posts, newest first. Returns [] if the table isn't there yet (migration 007). */
-async function getPosts(twinId: string): Promise<Post[]> {
+interface PostWithSocial extends Post {
+  likeCount: number;
+  likedByMe: boolean;
+  commentCount: number;
+}
+
+/**
+ * A twin's posts (newest first) with like/comment aggregates.
+ * Degrades to [] / zeros if the posts/social tables aren't there yet
+ * (migrations 007 / 008).
+ */
+async function getPostsWithSocial(
+  twinId: string,
+  viewerProfileId: string | null
+): Promise<PostWithSocial[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('posts')
@@ -155,36 +170,64 @@ async function getPosts(twinId: string): Promise<Post[]> {
     .eq('twin_id', twinId)
     .order('created_at', { ascending: false })
     .limit(50);
-  if (error) return [];
-  return (data as Post[]) || [];
+  if (error || !data || data.length === 0) return [];
+
+  const posts = data as Post[];
+  const ids = posts.map((p) => p.id);
+
+  const [{ data: likes }, { data: comments }] = await Promise.all([
+    supabase.from('post_likes').select('post_id, profile_id').in('post_id', ids),
+    supabase.from('post_comments').select('post_id').in('post_id', ids),
+  ]);
+
+  const likeCount: Record<string, number> = {};
+  const likedByMe: Record<string, boolean> = {};
+  const commentCount: Record<string, number> = {};
+  ((likes as { post_id: string; profile_id: string }[] | null) || []).forEach((l) => {
+    likeCount[l.post_id] = (likeCount[l.post_id] || 0) + 1;
+    if (viewerProfileId && l.profile_id === viewerProfileId) likedByMe[l.post_id] = true;
+  });
+  ((comments as { post_id: string }[] | null) || []).forEach((cm) => {
+    commentCount[cm.post_id] = (commentCount[cm.post_id] || 0) + 1;
+  });
+
+  return posts.map((p) => ({
+    ...p,
+    likeCount: likeCount[p.id] || 0,
+    likedByMe: !!likedByMe[p.id],
+    commentCount: commentCount[p.id] || 0,
+  }));
 }
 
-/** Is this Clerk user an active subscriber of the twin? Anonymous → false. */
-async function getIsSubscriber(twinId: string): Promise<boolean> {
+/** The viewer's app profile id (null if anonymous / no profile). Never throws. */
+async function getViewerProfileId(): Promise<string | null> {
   let userId: string | null = null;
   try {
     ({ userId } = await auth());
   } catch {
-    return false;
+    return null;
   }
-  if (!userId) return false;
-
+  if (!userId) return null;
   const supabase = createAdminClient();
-  const { data: profile } = await supabase
+  const { data } = await supabase
     .from('profiles')
     .select('id')
     .eq('clerk_id', userId)
     .maybeSingle();
-  if (!profile) return false;
+  return data?.id ?? null;
+}
 
-  const { data: sub } = await supabase
+/** Does this profile have an active subscription to the twin? */
+async function isActiveSubscriber(profileId: string, twinId: string): Promise<boolean> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
     .from('subscriptions')
     .select('id')
-    .eq('fan_id', profile.id)
+    .eq('fan_id', profileId)
     .eq('twin_id', twinId)
     .eq('status', 'active')
     .maybeSingle();
-  return !!sub;
+  return !!data;
 }
 
 /** Compact relative time, e.g. "3d", "5h", "just now". */
@@ -254,10 +297,14 @@ export default async function PublicTwinPage({
   const twin = await getTwin(slug);
   if (!twin) notFound();
 
-  const [posts, isSubscriber] = await Promise.all([
-    getPosts(twin.id),
-    getIsSubscriber(twin.id),
+  const viewerProfileId = await getViewerProfileId();
+  const isOwner = !!viewerProfileId && viewerProfileId === twin.creator_id;
+  const [posts, subscribed] = await Promise.all([
+    getPostsWithSocial(twin.id, viewerProfileId),
+    viewerProfileId ? isActiveSubscriber(viewerProfileId, twin.id) : Promise.resolve(false),
   ]);
+  const isSubscriber = subscribed;
+  const canSeeMembers = isSubscriber || isOwner;
 
   const tiers: PricingTier[] = twin.settings?.pricing_tiers || DEFAULT_TIERS;
   const cheapest = tiers.reduce((a, b) => (a.cents < b.cents ? a : b));
@@ -397,79 +444,24 @@ export default async function PublicTwinPage({
           <div className="mb-7">
             <p className={`text-sm font-600 mb-3 ${c.heading}`}>Latest from {twin.name}</p>
             <div className="space-y-3">
-              {posts.map((post) => {
-                const locked = post.visibility === 'subscribers' && !isSubscriber;
-
-                if (locked) {
-                  const kind =
-                    post.media_type === 'video'
-                      ? 'video'
-                      : post.media_type === 'image'
-                        ? 'photo'
-                        : 'post';
-                  const KindIcon =
-                    post.media_type === 'video'
-                      ? Film
-                      : post.media_type === 'image'
-                        ? ImageIcon
-                        : Lock;
-                  return (
-                    <div key={post.id} className={`rounded-2xl overflow-hidden ${c.card}`}>
-                      <div className="relative h-52 flex flex-col items-center justify-center gap-2 px-6 text-center bg-gradient-to-br from-[#A855F7]/20 to-[#00D4FF]/10">
-                        <span className="absolute top-3 right-3 inline-flex items-center gap-1 text-[11px] font-600 text-white bg-black/30 rounded-full px-2 py-1 backdrop-blur-sm">
-                          <Lock className="w-3 h-3" aria-hidden="true" /> Locked
-                        </span>
-                        <div className="w-11 h-11 rounded-full bg-black/25 flex items-center justify-center backdrop-blur-sm">
-                          <KindIcon className="w-5 h-5 text-white" aria-hidden="true" />
-                        </div>
-                        <p className={`text-sm font-700 ${c.heading}`}>Close Friends only</p>
-                        <p className={`text-xs max-w-[16rem] ${c.muted}`}>
-                          Members see this {kind} the second it drops — join from{' '}
-                          {formatPrice(cheapest.cents)}/mo and it&apos;s yours.
-                        </p>
-                      </div>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div key={post.id} className={`rounded-2xl overflow-hidden ${c.card}`}>
-                    {post.media_url && post.media_type === 'image' && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={post.media_url}
-                        alt=""
-                        className="w-full max-h-[28rem] object-cover"
-                      />
-                    )}
-                    {post.media_url && post.media_type === 'video' && (
-                      <video
-                        src={post.media_url}
-                        controls
-                        playsInline
-                        className="w-full max-h-[28rem] bg-black"
-                      />
-                    )}
-                    <div className="p-4">
-                      {post.body && (
-                        <p
-                          className={`text-[15px] leading-relaxed whitespace-pre-wrap ${c.body}`}
-                        >
-                          {post.body}
-                        </p>
-                      )}
-                      <div className={`flex items-center gap-2 text-xs mt-2 ${c.muted}`}>
-                        {post.visibility === 'subscribers' && (
-                          <span className="inline-flex items-center gap-1 text-[#A855F7] font-600">
-                            <Lock className="w-3 h-3" aria-hidden="true" /> Close Friends
-                          </span>
-                        )}
-                        <span>{timeAgo(post.created_at)}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {posts.map((post) => (
+                <FeedPost
+                  key={post.id}
+                  post={post}
+                  locked={post.visibility === 'subscribers' && !canSeeMembers}
+                  likeCount={post.likeCount}
+                  likedByMe={post.likedByMe}
+                  commentCount={post.commentCount}
+                  lockedTeaserPrice={formatPrice(cheapest.cents)}
+                  timeLabel={timeAgo(post.created_at)}
+                  twinName={twin.name}
+                  slug={twin.slug}
+                  isAuthed={!!viewerProfileId}
+                  isOwner={isOwner}
+                  viewerProfileId={viewerProfileId}
+                  theme={{ card: c.card, heading: c.heading, body: c.body, muted: c.muted }}
+                />
+              ))}
             </div>
           </div>
         )}

@@ -197,6 +197,11 @@ export const createPostSchema = z
     message: 'A post needs text or media',
   });
 
+/** A fan comment on a post. */
+export const addCommentSchema = z.object({
+  body: z.string().trim().min(1).max(500),
+});
+
 /**
  * Parse a request body against a schema.
  * Returns { data } on success or { error: Response } on failure.
