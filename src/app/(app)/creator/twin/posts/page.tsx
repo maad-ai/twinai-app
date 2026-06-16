@@ -11,6 +11,7 @@ import {
   X,
   ImagePlus,
   Film,
+  ExternalLink,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -33,6 +34,7 @@ export default function PostsPage() {
   const [loading, setLoading] = useState(true);
   const [hasTwin, setHasTwin] = useState(true);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [slug, setSlug] = useState<string | null>(null);
 
   // Composer state
   const [body, setBody] = useState('');
@@ -51,6 +53,12 @@ export default function PostsPage() {
         setPosts(data.posts || []);
       } else if (res.status === 404) {
         setHasTwin(false);
+      }
+      // Slug → "View my page" link to the live feed.
+      const twinRes = await fetch('/api/twin');
+      if (twinRes.ok) {
+        const t = await twinRes.json().catch(() => ({}));
+        setSlug(t.twin?.slug || null);
       }
       setLoading(false);
     }
@@ -194,10 +202,21 @@ export default function PostsPage() {
       <div className="flex items-center gap-3 mb-2">
         <Newspaper className="w-6 h-6 text-[#A855F7]" strokeWidth={1.8} />
         <h1 className="font-display font-800 text-2xl text-[#0F0F23]">Posts</h1>
+        {slug && (
+          <a
+            href={`/@${slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto text-sm font-600 text-[#A855F7] hover:underline flex items-center gap-1"
+          >
+            View my page <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+          </a>
+        )}
       </div>
       <p className="text-sm text-[#94A3B8] mb-8">
         Share updates with your fans. Public posts pull people in; members-only posts give them a
-        reason to subscribe.
+        reason to subscribe. Everything you post shows on your page at{' '}
+        <span className="font-600 text-[#64748B]">twiinn.ai/@{slug || 'you'}</span>.
       </p>
 
       {/* Composer */}

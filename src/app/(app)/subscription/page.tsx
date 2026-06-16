@@ -118,9 +118,22 @@ export default function SubscriptionsPage() {
             <div key={sub.id} className="card rounded-xl p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  <Avatar name={sub.twins?.name || ''} size="md" />
+                  <Avatar
+                    name={sub.twins?.name || ''}
+                    size="md"
+                    href={sub.twins?.slug ? `/@${sub.twins.slug}` : undefined}
+                  />
                   <div>
-                    <p className="font-display font-700 text-[#0F0F23]">{sub.twins?.name}</p>
+                    {sub.twins?.slug ? (
+                      <Link
+                        href={`/@${sub.twins.slug}`}
+                        className="font-display font-700 text-[#0F0F23] hover:text-[#A855F7] transition-colors"
+                      >
+                        {sub.twins?.name}
+                      </Link>
+                    ) : (
+                      <p className="font-display font-700 text-[#0F0F23]">{sub.twins?.name}</p>
+                    )}
                     <p className="text-xs text-[#94A3B8]">{sub.twins?.niche}</p>
                   </div>
                 </div>

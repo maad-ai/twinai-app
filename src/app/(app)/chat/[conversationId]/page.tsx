@@ -15,6 +15,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [twinId, setTwinId] = useState('');
   const [twinName, setTwinName] = useState('');
+  const [twinSlug, setTwinSlug] = useState('');
   const [credits, setCredits] = useState<number | null>(null);
   const [creditsTotal, setCreditsTotal] = useState<number | null>(null);
   const [chatError, setChatError] = useState('');
@@ -38,6 +39,7 @@ export default function ChatPage() {
         if (conv) {
           setTwinId(conv.twin_id);
           setTwinName((conv.twins as { name: string })?.name || 'Twin');
+          setTwinSlug((conv.twins as { slug?: string })?.slug || '');
 
           // Fetch credits for this twin
           const subRes = await fetch('/api/subscription');
@@ -180,9 +182,18 @@ export default function ChatPage() {
         <Link href="/chat" className="text-[#94A3B8] hover:text-[#0F0F23] transition-colors md:hidden">
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <Avatar name={twinName} size="md" />
-        <div className="flex-1">
-          <p className="font-display font-700 text-sm text-[#0F0F23]">{twinName}</p>
+        <Avatar name={twinName} size="md" href={twinSlug ? `/@${twinSlug}` : undefined} />
+        <div className="flex-1 min-w-0">
+          {twinSlug ? (
+            <Link
+              href={`/@${twinSlug}`}
+              className="font-display font-700 text-sm text-[#0F0F23] hover:text-[#A855F7] transition-colors"
+            >
+              {twinName}
+            </Link>
+          ) : (
+            <p className="font-display font-700 text-sm text-[#0F0F23]">{twinName}</p>
+          )}
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#84FF57]" />
             <span className="text-[11px] text-[#94A3B8]">AI Twin</span>
