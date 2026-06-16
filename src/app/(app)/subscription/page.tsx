@@ -139,8 +139,11 @@ export default function SubscriptionsPage() {
 
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-4">
-                  <span className="text-[#94A3B8]">
-                    <span className="font-600 text-[#0F0F23]">{sub.credits_remaining}</span>/{sub.credits_total} credits
+                  <span
+                    className="text-[#94A3B8]"
+                    title={`${sub.credits_remaining}/${sub.credits_total} chats this month`}
+                  >
+                    Our time this month
                   </span>
                   <span className="text-[#94A3B8]">
                     {formatPrice(sub.twins?.monthly_price_cents)}/mo

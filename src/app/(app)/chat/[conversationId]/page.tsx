@@ -16,6 +16,7 @@ export default function ChatPage() {
   const [twinId, setTwinId] = useState('');
   const [twinName, setTwinName] = useState('');
   const [credits, setCredits] = useState<number | null>(null);
+  const [creditsTotal, setCreditsTotal] = useState<number | null>(null);
   const [chatError, setChatError] = useState('');
   const chatRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -45,6 +46,7 @@ export default function ChatPage() {
             const sub = subData.subscriptions?.find((s: { twins: { id: string } }) => s.twins?.id === conv.twin_id);
             if (sub) {
               setCredits(sub.credits_remaining);
+              setCreditsTotal(sub.credits_total ?? null);
             }
           }
         }
@@ -89,7 +91,7 @@ export default function ChatPage() {
         setMessages((prev) => prev.slice(0, -1));
 
         if (errData.code === 'NO_CREDITS') {
-          setChatError('You\'ve used all your messages this month. Buy a credit pack to continue.');
+          setChatError('We\'ve been talking a lot this month — love that. Your chats refill next billing cycle.');
         } else if (errData.code === 'NOT_SUBSCRIBED') {
           setChatError('You need to subscribe to chat with this twin.');
         } else {
@@ -186,23 +188,26 @@ export default function ChatPage() {
             <span className="text-[11px] text-[#94A3B8]">AI Twin</span>
           </div>
         </div>
-        {credits !== null && (
-          <div className={`text-xs font-600 px-3 py-1.5 rounded-full ${
-            credits > 50 ? 'bg-[#84FF57]/15 text-[#22C55E]' :
-            credits > 10 ? 'bg-[#FBBF24]/15 text-[#D97706]' :
-            'bg-[#FF6B6B]/15 text-[#FF6B6B]'
-          }`}>
-            {credits} msg
-          </div>
-        )}
+        {/* Ambient, non-numeric: silent at rest, a soft warm nudge only when winding down.
+            We sell a membership, not a message counter — the raw number is on hover only. */}
+        {credits !== null &&
+          creditsTotal !== null &&
+          credits <= Math.max(8, Math.ceil(creditsTotal * 0.2)) && (
+            <span
+              className="text-[11px] font-500 text-[#94A3B8] whitespace-nowrap"
+              title={`${credits} chats left this month`}
+            >
+              {credits > 0 ? 'Winding down this month' : 'Refills next cycle'}
+            </span>
+          )}
       </div>
 
       {/* Credit error banner */}
       {chatError && (
-        <div className="px-4 py-3 bg-[#FF6B6B]/10 border-b border-[#FF6B6B]/20 text-center">
-          <p className="text-sm text-[#FF6B6B] font-500">{chatError}</p>
+        <div className="px-4 py-3 bg-[#A855F7]/[0.08] border-b border-[#A855F7]/20 text-center">
+          <p className="text-sm text-[#7C3AED] font-500">{chatError}</p>
           <Link href="/explore" className="text-xs text-[#A855F7] font-600 hover:underline mt-1 inline-block">
-            Buy more credits
+            Top up to keep going
           </Link>
         </div>
       )}

@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Compass, MessageCircle, LayoutDashboard, Sparkles, Settings, HelpCircle } from 'lucide-react';
+import { Compass, MessageCircle, LayoutDashboard, Sparkles, Settings, HelpCircle, Newspaper } from 'lucide-react';
 import Link from 'next/link';
 
 const fanLinks = [
@@ -14,9 +14,9 @@ const fanLinks = [
 const creatorLinks = [
   { href: '/creator', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/creator/twin', icon: Sparkles, label: 'Twin' },
+  { href: '/creator/twin/posts', icon: Newspaper, label: 'Posts' },
   { href: '/creator/questions', icon: HelpCircle, label: 'Questions' },
   { href: '/creator/conversations', icon: MessageCircle, label: 'Convos' },
-  { href: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export function MobileNav() {

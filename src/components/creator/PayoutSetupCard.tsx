@@ -85,7 +85,7 @@ export function PayoutSetupCard() {
                 ? 'Your bank account is connected — earnings are paid out monthly.'
                 : inProgress
                   ? 'Stripe needs a bit more information before payouts can start.'
-                  : 'You keep 85% of every subscription. Connect your bank through Stripe to receive monthly payouts.'}
+                  : 'You keep 80% of every subscription. Connect your bank through Stripe to receive monthly payouts.'}
             </p>
           </div>
         </div>

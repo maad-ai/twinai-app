@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Sparkles, Upload, Eye, Globe, Sliders, Fingerprint } from 'lucide-react';
+import { Sparkles, Upload, Eye, Globe, Sliders, Fingerprint, Newspaper } from 'lucide-react';
 import Link from 'next/link';
 import { formatPrice } from '@/lib/format';
 
@@ -104,6 +104,12 @@ export default async function TwinPage() {
           <Eye className="w-5 h-5 text-[#00D4FF] mb-2" strokeWidth={1.8} />
           <h3 className="font-display font-700 text-[#0F0F23] group-hover:text-[#00D4FF] transition-colors">Preview</h3>
           <p className="text-xs text-[#94A3B8] mt-1">Test your twin</p>
+        </Link>
+
+        <Link href="/creator/twin/posts" className="card rounded-xl p-5 hover:border-[#22C55E]/30 transition-all group">
+          <Newspaper className="w-5 h-5 text-[#22C55E] mb-2" strokeWidth={1.8} />
+          <h3 className="font-display font-700 text-[#0F0F23] group-hover:text-[#22C55E] transition-colors">Posts</h3>
+          <p className="text-xs text-[#94A3B8] mt-1">Share with your fans</p>
         </Link>
 
         <Link href="/creator/twin/profile" className="card rounded-xl p-5 hover:border-[#FBBF24]/30 transition-all group">

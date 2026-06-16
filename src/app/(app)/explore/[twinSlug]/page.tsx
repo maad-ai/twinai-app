@@ -9,9 +9,9 @@ import { CertifiedBadge } from '@/components/ui/CertifiedBadge';
 import { formatPrice } from '@/lib/format';
 
 const DEFAULT_TIERS = [
-  { cents: 999, credits: 100, name: 'Basic' },
-  { cents: 1999, credits: 300, name: 'Standard' },
-  { cents: 4999, credits: 800, name: 'Premium' },
+  { cents: 999, credits: 80, name: 'On the List' },
+  { cents: 1999, credits: 150, name: 'Close Friends' },
+  { cents: 4999, credits: 400, name: 'Front Row' },
 ];
 
 export default function TwinProfilePage() {
@@ -154,10 +154,10 @@ export default function TwinProfilePage() {
                     {tier.name}
                   </span>
                   {i === 1 && (
-                    <span className="text-[10px] font-600 text-[#A855F7] uppercase">Popular</span>
+                    <span className="text-[10px] font-600 text-[#A855F7] uppercase">Where most people sit</span>
                   )}
                 </div>
-                <p className="text-sm text-[#94A3B8] mt-1">{tier.credits} messages/month</p>
+                <p className="text-sm text-[#94A3B8] mt-1">Full access — chat, the vault &amp; every perk</p>
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-display font-800 text-xl text-[#0F0F23]">

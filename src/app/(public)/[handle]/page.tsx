@@ -1,22 +1,36 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Avatar } from '@/components/ui/Avatar';
 import { CertifiedBadge } from '@/components/ui/CertifiedBadge';
 import { formatPrice } from '@/lib/format';
 import { getTheme } from '@/lib/themes';
 import type { PricingTier } from '@/types';
-import { MessageCircle, Users, Sparkles, Check, ArrowRight } from 'lucide-react';
+import { MessageCircle, Users, Sparkles, Check, ArrowRight, Lock, Image as ImageIcon, Film } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.twiinn.ai';
 
 const DEFAULT_TIERS: PricingTier[] = [
-  { cents: 999, credits: 100, name: 'Basic' },
-  { cents: 1999, credits: 300, name: 'Standard' },
-  { cents: 4999, credits: 800, name: 'Premium' },
+  { cents: 999, credits: 80, name: 'On the List' },
+  { cents: 1999, credits: 150, name: 'Close Friends' },
+  { cents: 4999, credits: 400, name: 'Front Row' },
+];
+
+/**
+ * "Close Friends" membership framing — we sell access to the creator's world,
+ * never a message counter. (chat is one perk among several; the message quota
+ * lives under the hood as quiet fair-use — see the chat UI for the soft label.)
+ */
+const MEMBERSHIP_BENEFITS = [
+  'Talk to me anytime — a real back-and-forth, just you and me. No comment-section roulette.',
+  'The vault: locked posts, photos and video I keep off the main feed — stuff only my Close Friends see.',
+  'First in line on everything new, before it goes public.',
+  'One membership, everything I make — nothing held back behind a second paywall.',
+  'It gets better the more we talk — I get to know you, you watch me learn your style.',
 ];
 
 interface Socials {
@@ -123,6 +137,72 @@ async function getTwin(slug: string): Promise<PublicTwin | null> {
   return fallback as PublicTwin | null;
 }
 
+interface Post {
+  id: string;
+  body: string | null;
+  media_url: string | null;
+  media_type: 'text' | 'image' | 'video';
+  visibility: 'public' | 'subscribers';
+  created_at: string;
+}
+
+/** A twin's posts, newest first. Returns [] if the table isn't there yet (migration 007). */
+async function getPosts(twinId: string): Promise<Post[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('posts')
+    .select('id, body, media_url, media_type, visibility, created_at')
+    .eq('twin_id', twinId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) return [];
+  return (data as Post[]) || [];
+}
+
+/** Is this Clerk user an active subscriber of the twin? Anonymous → false. */
+async function getIsSubscriber(twinId: string): Promise<boolean> {
+  let userId: string | null = null;
+  try {
+    ({ userId } = await auth());
+  } catch {
+    return false;
+  }
+  if (!userId) return false;
+
+  const supabase = createAdminClient();
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('clerk_id', userId)
+    .maybeSingle();
+  if (!profile) return false;
+
+  const { data: sub } = await supabase
+    .from('subscriptions')
+    .select('id')
+    .eq('fan_id', profile.id)
+    .eq('twin_id', twinId)
+    .eq('status', 'active')
+    .maybeSingle();
+  return !!sub;
+}
+
+/** Compact relative time, e.g. "3d", "5h", "just now". */
+function timeAgo(iso: string): string {
+  const then = new Date(iso).getTime();
+  const diff = Date.now() - then;
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const d = Math.floor(hr / 24);
+  if (d < 7) return `${d}d`;
+  const w = Math.floor(d / 7);
+  if (w < 5) return `${w}w`;
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 function parseHandle(raw: string): string | null {
   const decoded = decodeURIComponent(raw);
   if (!decoded.startsWith('@')) return null;
@@ -173,6 +253,11 @@ export default async function PublicTwinPage({
 
   const twin = await getTwin(slug);
   if (!twin) notFound();
+
+  const [posts, isSubscriber] = await Promise.all([
+    getPosts(twin.id),
+    getIsSubscriber(twin.id),
+  ]);
 
   const tiers: PricingTier[] = twin.settings?.pricing_tiers || DEFAULT_TIERS;
   const cheapest = tiers.reduce((a, b) => (a.cents < b.cents ? a : b));
@@ -274,6 +359,39 @@ export default async function PublicTwinPage({
           )}
         </div>
 
+        {/* Close Friends membership — sell the world, never a message counter */}
+        <div className={`rounded-2xl p-5 mb-7 ${c.card}`}>
+          <h2 className={`font-display font-800 text-xl leading-tight mb-1.5 ${c.heading}`}>
+            Get on {twin.name}&apos;s Close Friends list
+          </h2>
+          <p className={`text-sm leading-relaxed mb-4 ${c.body}`}>
+            Skip the comments. Become a member and you talk to me straight — anytime — plus
+            everything I keep off the main feed: the locked posts, the early drops, the stuff only
+            my people get.
+          </p>
+          <ul className="space-y-2.5 mb-5">
+            {MEMBERSHIP_BENEFITS.map((b) => (
+              <li
+                key={b}
+                className={`flex items-start gap-2.5 text-[14px] leading-snug ${c.body}`}
+              >
+                <Check className="w-4 h-4 text-[#16A34A] mt-0.5 flex-shrink-0" aria-hidden="true" />
+                <span>{b}</span>
+              </li>
+            ))}
+          </ul>
+          <Link
+            href={`/explore/${twin.slug}`}
+            className="w-full gradient-btn text-white font-600 py-3.5 rounded-xl flex items-center justify-center gap-2"
+          >
+            Get on the list
+            <ArrowRight className="w-4 h-4" aria-hidden="true" />
+          </Link>
+          <p className={`text-xs text-center mt-2.5 ${c.muted}`}>
+            From {formatPrice(cheapest.cents)}/mo &bull; Cancel anytime
+          </p>
+        </div>
+
         {/* Bio */}
         {bio && (
           <div className={`rounded-2xl p-5 mb-7 ${c.card}`}>
@@ -315,9 +433,91 @@ export default async function PublicTwinPage({
           </div>
         </div>
 
-        {/* Pricing */}
+        {/* Feed — public posts pull people in; locked posts sell the membership */}
+        {posts.length > 0 && (
+          <div className="mb-7">
+            <p className={`text-sm font-600 mb-3 ${c.heading}`}>Latest from {twin.name}</p>
+            <div className="space-y-3">
+              {posts.map((post) => {
+                const locked = post.visibility === 'subscribers' && !isSubscriber;
+
+                if (locked) {
+                  const kind =
+                    post.media_type === 'video'
+                      ? 'video'
+                      : post.media_type === 'image'
+                        ? 'photo'
+                        : 'post';
+                  const KindIcon =
+                    post.media_type === 'video'
+                      ? Film
+                      : post.media_type === 'image'
+                        ? ImageIcon
+                        : Lock;
+                  return (
+                    <div key={post.id} className={`rounded-2xl overflow-hidden ${c.card}`}>
+                      <div className="relative h-52 flex flex-col items-center justify-center gap-2 px-6 text-center bg-gradient-to-br from-[#A855F7]/20 to-[#00D4FF]/10">
+                        <span className="absolute top-3 right-3 inline-flex items-center gap-1 text-[11px] font-600 text-white bg-black/30 rounded-full px-2 py-1 backdrop-blur-sm">
+                          <Lock className="w-3 h-3" aria-hidden="true" /> Locked
+                        </span>
+                        <div className="w-11 h-11 rounded-full bg-black/25 flex items-center justify-center backdrop-blur-sm">
+                          <KindIcon className="w-5 h-5 text-white" aria-hidden="true" />
+                        </div>
+                        <p className={`text-sm font-700 ${c.heading}`}>Close Friends only</p>
+                        <p className={`text-xs max-w-[16rem] ${c.muted}`}>
+                          Members see this {kind} the second it drops — join from{' '}
+                          {formatPrice(cheapest.cents)}/mo and it&apos;s yours.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={post.id} className={`rounded-2xl overflow-hidden ${c.card}`}>
+                    {post.media_url && post.media_type === 'image' && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={post.media_url}
+                        alt=""
+                        className="w-full max-h-[28rem] object-cover"
+                      />
+                    )}
+                    {post.media_url && post.media_type === 'video' && (
+                      <video
+                        src={post.media_url}
+                        controls
+                        playsInline
+                        className="w-full max-h-[28rem] bg-black"
+                      />
+                    )}
+                    <div className="p-4">
+                      {post.body && (
+                        <p
+                          className={`text-[15px] leading-relaxed whitespace-pre-wrap ${c.body}`}
+                        >
+                          {post.body}
+                        </p>
+                      )}
+                      <div className={`flex items-center gap-2 text-xs mt-2 ${c.muted}`}>
+                        {post.visibility === 'subscribers' && (
+                          <span className="inline-flex items-center gap-1 text-[#A855F7] font-600">
+                            <Lock className="w-3 h-3" aria-hidden="true" /> Close Friends
+                          </span>
+                        )}
+                        <span>{timeAgo(post.created_at)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Pricing — pick a spot, not a message pack */}
         <div className="mb-6">
-          <p className={`text-sm font-600 mb-3 text-center ${c.heading}`}>Monthly plans</p>
+          <p className={`text-sm font-600 mb-3 text-center ${c.heading}`}>Choose your spot</p>
           <div className="space-y-2">
             {tiers.map((tier, i) => (
               <div key={i} className={`rounded-xl p-4 flex items-center justify-between ${c.card}`}>
@@ -327,16 +527,19 @@ export default async function PublicTwinPage({
                       {tier.name}
                     </span>
                     {i === 1 && (
-                      <span className={`text-[10px] font-600 uppercase ${c.muted}`}>Popular</span>
+                      <span className={`text-[10px] font-600 uppercase ${c.muted}`}>
+                        Where most people sit
+                      </span>
                     )}
                   </div>
-                  <p className={`text-sm mt-0.5 flex items-center gap-1 ${c.muted}`}>
-                    <Check className="w-3.5 h-3.5 text-[#16A34A]" aria-hidden="true" />
-                    {tier.credits} messages/month
+                  <p className={`text-sm mt-0.5 flex items-center gap-1.5 ${c.muted}`}>
+                    <Check className="w-3.5 h-3.5 text-[#16A34A] flex-shrink-0" aria-hidden="true" />
+                    Full access — chat, the vault &amp; every perk
                   </p>
                 </div>
-                <span className={`font-display font-800 text-xl ${c.heading}`}>
+                <span className={`font-display font-800 text-xl whitespace-nowrap ${c.heading}`}>
                   {formatPrice(tier.cents)}
+                  <span className={`text-xs font-600 ${c.muted}`}>/mo</span>
                 </span>
               </div>
             ))}
@@ -348,11 +551,11 @@ export default async function PublicTwinPage({
           href={`/explore/${twin.slug}`}
           className="w-full gradient-btn text-white font-600 py-4 rounded-xl flex items-center justify-center gap-2 text-lg"
         >
-          Subscribe &amp; start chatting
+          Become a member
           <ArrowRight className="w-5 h-5" aria-hidden="true" />
         </Link>
         <p className={`text-xs text-center mt-3 ${c.muted}`}>
-          From {formatPrice(cheapest.cents)}/mo &bull; Cancel anytime &bull; Keep your messages
+          From {formatPrice(cheapest.cents)}/mo &bull; Cancel anytime
         </p>
 
         {/* Viral footer */}

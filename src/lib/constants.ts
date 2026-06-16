@@ -1,7 +1,9 @@
 // Pricing tiers (minimum prices enforced server-side)
+// Default credits respect the 12¢/message floor: floor(price / 12).
 export const MIN_TIER_PRICES = [999, 1999, 4999]; // cents
-export const DEFAULT_TIER_CREDITS = [100, 300, 800];
-export const TIER_NAMES = ['Basic', 'Standard', 'Premium'];
+export const DEFAULT_TIER_CREDITS = [80, 150, 400];
+// "Close Friends" membership ladder — we sell access tiers, not message packs.
+export const TIER_NAMES = ['On the List', 'Close Friends', 'Front Row'];
 
 export const DEFAULT_TIERS = MIN_TIER_PRICES.map((cents, i) => ({
   cents,
@@ -9,16 +11,17 @@ export const DEFAULT_TIERS = MIN_TIER_PRICES.map((cents, i) => ({
   name: TIER_NAMES[i],
 }));
 
-// Platform commission
-export const PLATFORM_FEE_PERCENT = 15;
-export const CREATOR_SHARE_PERCENT = 85;
+// Platform commission (matches OnlyFans/Fansly standard; covers AI inference)
+export const PLATFORM_FEE_PERCENT = 20;
+export const CREATOR_SHARE_PERCENT = 80;
 
 /**
  * Unit-economics floor: every message a fan buys must cost at least this
- * many cents so the platform's 15% always covers inference + processing.
- * ($4.99 buys at most 83 msgs/mo; $19.99 → 333; $49.99 → 833.)
+ * many cents so the platform's 20% always covers inference + processing.
+ * At 12¢: 20% = 2.4¢/msg ≥ ~1.5¢ Claude inference. ($4.99 → 41 msgs/mo;
+ * $19.99 → 166; $49.99 → 416.)
  */
-export const MIN_CENTS_PER_CREDIT = 6;
+export const MIN_CENTS_PER_CREDIT = 12;
 /** Cheapest allowed subscription tier (cents). */
 export const MIN_TIER_CENTS = 499;
 

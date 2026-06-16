@@ -12,8 +12,8 @@ const NICHES = [
 ];
 
 const MIN_PRICES = [999, 1999, 4999]; // minimum cents per tier
-const DEFAULT_CREDITS = [100, 300, 800];
-const TIER_NAMES = ['Basic', 'Standard', 'Premium'];
+const DEFAULT_CREDITS = [80, 150, 400]; // respect the 12¢/message floor at min price
+const TIER_NAMES = ['On the List', 'Close Friends', 'Front Row'];
 
 type PersonalitySlider = {
   key: string;
@@ -255,7 +255,7 @@ export default function OnboardingPage() {
               Set your <span className="gradient-text">prices</span>
             </h1>
             <p className="text-[#94A3B8] mb-8">
-              Set 3 pricing tiers for your fans. Drag the sliders to adjust. You keep 85-90%.
+              Set 3 pricing tiers for your fans. Drag the sliders to adjust. You keep 80%.
             </p>
 
             <div className="space-y-6">
@@ -297,7 +297,7 @@ export default function OnboardingPage() {
 
                     <div className="flex justify-between text-xs">
                       <span className="text-[#94A3B8]">Min {formatPrice(MIN_PRICES[i])}</span>
-                      <span className="text-[#84FF57] font-500">You earn ~{formatPrice(prices[i] * 0.85)}/sub</span>
+                      <span className="text-[#84FF57] font-500">You earn ~{formatPrice(prices[i] * 0.80)}/sub</span>
                     </div>
                   </div>
                 );

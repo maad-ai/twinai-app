@@ -54,7 +54,7 @@ export default async function EarningsPage() {
   // Estimate from current subscribers (clearly labeled as estimate)
   const subs = twin?.total_subscribers || 0;
   const price = twin?.monthly_price_cents || 1999;
-  const estimatedMonthlyCents = Math.round(subs * price * 0.85);
+  const estimatedMonthlyCents = Math.round(subs * price * 0.80);
 
   const STATUS_STYLES: Record<EarningRow['status'], string> = {
     paid: 'bg-[#22C55E]/10 text-[#16A34A]',
@@ -102,7 +102,7 @@ export default async function EarningsPage() {
           <span className="text-sm font-500 text-[#94A3B8]"> /month</span>
         </p>
         <p className="text-xs text-[#94A3B8] mt-1">
-          {subs} subscriber{subs === 1 ? '' : 's'} × {formatPrice(price)} × 85% — an estimate, not
+          {subs} subscriber{subs === 1 ? '' : 's'} × {formatPrice(price)} × 80% — an estimate, not
           a guarantee.
         </p>
       </div>
@@ -155,8 +155,8 @@ export default async function EarningsPage() {
         <h2 className="font-display font-700 text-lg text-[#0F0F23] mb-3">How payouts work</h2>
         <div className="space-y-3 text-sm text-[#94A3B8]">
           <p>
-            You keep <span className="text-[#16A34A] font-600">85%</span> of every subscription and
-            credit pack. The remaining 15% covers platform, AI, and payment processing.
+            You keep <span className="text-[#16A34A] font-600">80%</span> of every subscription and
+            credit pack. The remaining 20% covers platform, AI, and payment processing.
           </p>
           <p>
             Payouts are processed monthly via Stripe to your connected bank account. Stripe may

@@ -163,6 +163,40 @@ export const updateTwinIdentitySchema = z.object({
     .optional(),
 });
 
+// ── Posts (creator membership feed) ──────────────────────────────
+
+/** Request a signed upload URL for a post's image/video. */
+export const postUploadUrlSchema = z.object({
+  mediaType: z.enum(['image', 'video']),
+  contentType: z.string().trim().min(1).max(100),
+});
+
+/**
+ * Create a post. A post is text-only, or text + one media item.
+ * - 'text'  → no media_url
+ * - 'image'/'video' → media_url required
+ * Must carry at least body or media.
+ */
+export const createPostSchema = z
+  .object({
+    body: z
+      .string()
+      .trim()
+      .max(2000)
+      .optional()
+      .nullable()
+      .transform((v) => (v === '' ? null : v ?? null)),
+    mediaUrl: z.string().url().max(1000).optional().nullable(),
+    mediaType: z.enum(['text', 'image', 'video']).default('text'),
+    visibility: z.enum(['public', 'subscribers']).default('public'),
+  })
+  .refine((p) => (p.mediaType === 'text' ? !p.mediaUrl : !!p.mediaUrl), {
+    message: 'media_type must match whether media is attached',
+  })
+  .refine((p) => (p.body && p.body.length > 0) || p.mediaType !== 'text', {
+    message: 'A post needs text or media',
+  });
+
 /**
  * Parse a request body against a schema.
  * Returns { data } on success or { error: Response } on failure.

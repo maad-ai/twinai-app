@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { UserButton } from '@clerk/nextjs';
-import { Compass, MessageCircle, LayoutDashboard, Users, DollarSign, Settings, Sparkles, HelpCircle } from 'lucide-react';
+import { Compass, MessageCircle, LayoutDashboard, Users, DollarSign, Settings, Sparkles, HelpCircle, Newspaper } from 'lucide-react';
 import Link from 'next/link';
 
 const fanLinks = [
@@ -14,6 +14,7 @@ const fanLinks = [
 const creatorLinks = [
   { href: '/creator', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/creator/twin', label: 'My Twin', icon: Sparkles },
+  { href: '/creator/twin/posts', label: 'Posts', icon: Newspaper },
   { href: '/creator/questions', label: 'Questions', icon: HelpCircle },
   { href: '/creator/subscribers', label: 'Subscribers', icon: Users },
   { href: '/creator/earnings', label: 'Earnings', icon: DollarSign },
@@ -29,6 +30,12 @@ export function Sidebar() {
     if (href === '/creator') {
       // Only exact match for /creator dashboard (not /creator/twin, etc.)
       return pathname === '/creator';
+    }
+    if (href === '/creator/twin') {
+      // "My Twin" covers its sub-editors (training, preview, profile, …) but
+      // NOT /creator/twin/posts, which has its own nav link.
+      if (pathname.startsWith('/creator/twin/posts')) return false;
+      return pathname === href || pathname.startsWith(href + '/');
     }
     return pathname === href || pathname.startsWith(href + '/');
   }

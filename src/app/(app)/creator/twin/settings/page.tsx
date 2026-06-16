@@ -23,8 +23,8 @@ interface TwinData {
   };
 }
 
-/** Mirrors the server-side unit-economics floor (6¢/message, $4.99 min). */
-const MIN_CENTS_PER_CREDIT = 6;
+/** Mirrors the server-side unit-economics floor (12¢/message, $4.99 min). */
+const MIN_CENTS_PER_CREDIT = 12;
 const MIN_TIER_CENTS = 499;
 const maxCreditsFor = (cents: number) => Math.floor(cents / MIN_CENTS_PER_CREDIT);
 
@@ -43,9 +43,9 @@ const LANGUAGES = [
 ];
 
 const DEFAULT_TIERS: PricingTier[] = [
-  { cents: 999, credits: 100, name: 'Basic' },
-  { cents: 1999, credits: 300, name: 'Standard' },
-  { cents: 4999, credits: 800, name: 'Premium' },
+  { cents: 999, credits: 80, name: 'On the List' },
+  { cents: 1999, credits: 150, name: 'Close Friends' },
+  { cents: 4999, credits: 400, name: 'Front Row' },
 ];
 
 const inputClass =
@@ -381,7 +381,7 @@ export default function TwinSettingsPage() {
           ))}
         </div>
         <p className="text-xs text-[#94A3B8] mt-3">
-          You keep 85% of every subscription. Minimum $4.99/plan and 6¢ per message — that&apos;s
+          You keep 80% of every subscription. Minimum $4.99/plan and 12¢ per message — that&apos;s
           what keeps the AI running. The middle tier is your headline price.
         </p>
       </div>
