@@ -392,48 +392,7 @@ export default async function PublicTwinPage({
           </p>
         </div>
 
-        {/* Bio */}
-        {bio && (
-          <div className={`rounded-2xl p-5 mb-7 ${c.card}`}>
-            <p className={`text-xs font-600 uppercase tracking-wider mb-2 ${c.muted}`}>About</p>
-            <p className={`text-[15px] leading-relaxed whitespace-pre-line ${c.body}`}>{bio}</p>
-          </div>
-        )}
-
-        {/* Stats — only shown once they're real */}
-        {(twin.total_subscribers > 0 || twin.total_messages > 0) && (
-          <div className="grid grid-cols-2 gap-3 mb-7">
-            <div className={`rounded-xl p-4 text-center ${c.card}`}>
-              <Users className="w-5 h-5 text-[#00D4FF] mx-auto mb-1" strokeWidth={1.8} aria-hidden="true" />
-              <p className={`font-display font-700 text-lg ${c.heading}`}>{twin.total_subscribers}</p>
-              <p className={`text-xs ${c.muted}`}>Subscribers</p>
-            </div>
-            <div className={`rounded-xl p-4 text-center ${c.card}`}>
-              <MessageCircle className="w-5 h-5 text-[#FF6B6B] mx-auto mb-1" strokeWidth={1.8} aria-hidden="true" />
-              <p className={`font-display font-700 text-lg ${c.heading}`}>{twin.total_messages}</p>
-              <p className={`text-xs ${c.muted}`}>Messages answered</p>
-            </div>
-          </div>
-        )}
-
-        {/* Welcome message preview */}
-        <div className={`rounded-2xl p-4 mb-7 ${c.card}`}>
-          <div className="flex gap-2.5">
-            <Avatar name={twin.name} src={twin.photo_url} size="sm" className="mt-0.5" />
-            <div className={`rounded-2xl rounded-tl-md px-3.5 py-2.5 text-sm leading-snug ${c.bubble}`}>
-              {welcome}
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-1.5 mt-3 pl-9">
-            {questions.map((q) => (
-              <span key={q} className={`text-xs font-500 rounded-full px-2.5 py-1 ${c.chip}`}>
-                {q}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Feed — public posts pull people in; locked posts sell the membership */}
+        {/* Feed — the creator's posts, front and center (profile feed) */}
         {posts.length > 0 && (
           <div className="mb-7">
             <p className={`text-sm font-600 mb-3 ${c.heading}`}>Latest from {twin.name}</p>
@@ -514,6 +473,47 @@ export default async function PublicTwinPage({
             </div>
           </div>
         )}
+
+        {/* Bio */}
+        {bio && (
+          <div className={`rounded-2xl p-5 mb-7 ${c.card}`}>
+            <p className={`text-xs font-600 uppercase tracking-wider mb-2 ${c.muted}`}>About</p>
+            <p className={`text-[15px] leading-relaxed whitespace-pre-line ${c.body}`}>{bio}</p>
+          </div>
+        )}
+
+        {/* Stats — only shown once they're real */}
+        {(twin.total_subscribers > 0 || twin.total_messages > 0) && (
+          <div className="grid grid-cols-2 gap-3 mb-7">
+            <div className={`rounded-xl p-4 text-center ${c.card}`}>
+              <Users className="w-5 h-5 text-[#00D4FF] mx-auto mb-1" strokeWidth={1.8} aria-hidden="true" />
+              <p className={`font-display font-700 text-lg ${c.heading}`}>{twin.total_subscribers}</p>
+              <p className={`text-xs ${c.muted}`}>Subscribers</p>
+            </div>
+            <div className={`rounded-xl p-4 text-center ${c.card}`}>
+              <MessageCircle className="w-5 h-5 text-[#FF6B6B] mx-auto mb-1" strokeWidth={1.8} aria-hidden="true" />
+              <p className={`font-display font-700 text-lg ${c.heading}`}>{twin.total_messages}</p>
+              <p className={`text-xs ${c.muted}`}>Messages answered</p>
+            </div>
+          </div>
+        )}
+
+        {/* Welcome message preview */}
+        <div className={`rounded-2xl p-4 mb-7 ${c.card}`}>
+          <div className="flex gap-2.5">
+            <Avatar name={twin.name} src={twin.photo_url} size="sm" className="mt-0.5" />
+            <div className={`rounded-2xl rounded-tl-md px-3.5 py-2.5 text-sm leading-snug ${c.bubble}`}>
+              {welcome}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-3 pl-9">
+            {questions.map((q) => (
+              <span key={q} className={`text-xs font-500 rounded-full px-2.5 py-1 ${c.chip}`}>
+                {q}
+              </span>
+            ))}
+          </div>
+        </div>
 
         {/* Pricing — pick a spot, not a message pack */}
         <div className="mb-6">
