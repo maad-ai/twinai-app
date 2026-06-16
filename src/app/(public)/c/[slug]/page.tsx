@@ -101,7 +101,7 @@ export default async function CreatorFeedPage({
         </div>
 
         {/* Profile header */}
-        <div className="-mt-12 mb-6">
+        <div className="relative z-10 -mt-12 mb-6">
           <div className="flex items-end justify-between gap-3">
             <Avatar
               name={twin.name}
