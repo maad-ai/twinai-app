@@ -18,7 +18,7 @@ import {
   DEFAULT_TIERS,
   type Socials,
 } from '@/lib/public-twin';
-import { Sparkles, ArrowRight, Check, Pencil, Plus, Newspaper } from 'lucide-react';
+import { Sparkles, ArrowRight, MessageCircle, Pencil, Plus, Newspaper } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -118,9 +118,12 @@ export default async function CreatorFeedPage({
                   <Plus className="w-4 h-4" aria-hidden="true" /> Add post
                 </Link>
               ) : subscribed ? (
-                <span className="inline-flex items-center gap-1.5 text-sm font-600 px-4 py-2 rounded-full bg-[#22C55E]/15 text-[#16A34A]">
-                  <Check className="w-4 h-4" aria-hidden="true" /> Member
-                </span>
+                <Link
+                  href="/chat"
+                  className="gradient-btn text-white text-sm font-600 px-4 py-2 rounded-full inline-flex items-center gap-1.5"
+                >
+                  <MessageCircle className="w-4 h-4" aria-hidden="true" /> Message
+                </Link>
               ) : (
                 <Link
                   href={`/explore/${twin.slug}`}
@@ -178,14 +181,22 @@ export default async function CreatorFeedPage({
           )}
         </div>
 
-        {/* Owner: manage page */}
+        {/* Owner: manage page + test the twin */}
         {isOwner && (
-          <Link
-            href="/creator/twin/profile"
-            className={`flex items-center justify-center gap-2 text-sm font-600 py-3 rounded-xl mb-5 ${c.card} ${c.heading}`}
-          >
-            <Pencil className="w-4 h-4 text-[#A855F7]" aria-hidden="true" /> Edit your page
-          </Link>
+          <div className="grid grid-cols-2 gap-2 mb-5">
+            <Link
+              href="/creator/twin/profile"
+              className={`flex items-center justify-center gap-2 text-sm font-600 py-3 rounded-xl ${c.card} ${c.heading}`}
+            >
+              <Pencil className="w-4 h-4 text-[#A855F7]" aria-hidden="true" /> Edit page
+            </Link>
+            <Link
+              href="/creator/twin/preview"
+              className={`flex items-center justify-center gap-2 text-sm font-600 py-3 rounded-xl ${c.card} ${c.heading}`}
+            >
+              <MessageCircle className="w-4 h-4 text-[#00D4FF]" aria-hidden="true" /> Preview chat
+            </Link>
+          </div>
         )}
 
         {/* Non-subscriber subscribe bar */}

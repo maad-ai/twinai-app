@@ -1,8 +1,15 @@
+import { PublicNav } from '@/components/public/PublicNav';
+
 /**
- * Public, unauthenticated pages (creator share links like /@slug).
- * No sidebar/app chrome — these pages are what fans hit from Instagram bios.
+ * Public, unauthenticated pages (creator pages like /@slug and /c/slug).
+ * A slim top bar gives a way back into the app / into Twiinn; each page owns
+ * its own creator-selected themed background below it.
  */
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
-  // Background is owned by each page (creator-selected theme).
-  return <>{children}</>;
+  return (
+    <>
+      <PublicNav />
+      {children}
+    </>
+  );
 }
