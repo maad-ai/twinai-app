@@ -31,9 +31,10 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Twin not found' }, { status: 404 });
   }
 
-  // media_url must be this twin's own uploaded file — not a hotlink or another
-  // twin's media. upload-url namespaces every file under `${twin.id}/`.
-  if (body.mediaUrl && !body.mediaUrl.includes(`/twin-posts/${twin.id}/`)) {
+  // media_url must be this twin's own uploaded file on our Supabase storage —
+  // not a hotlink or another twin's media. Match the full public-URL prefix.
+  const mediaBase = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/twin-posts/${twin.id}/`;
+  if (body.mediaUrl && !body.mediaUrl.startsWith(mediaBase)) {
     return Response.json({ error: 'Invalid media URL' }, { status: 400 });
   }
 
