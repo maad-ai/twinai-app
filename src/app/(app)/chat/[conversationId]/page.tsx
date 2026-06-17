@@ -217,9 +217,6 @@ export default function ChatPage() {
       {chatError && (
         <div className="px-4 py-3 bg-[#A855F7]/[0.08] border-b border-[#A855F7]/20 text-center">
           <p className="text-sm text-[#7C3AED] font-500">{chatError}</p>
-          <Link href="/explore" className="text-xs text-[#A855F7] font-600 hover:underline mt-1 inline-block">
-            Top up to keep going
-          </Link>
         </div>
       )}
 

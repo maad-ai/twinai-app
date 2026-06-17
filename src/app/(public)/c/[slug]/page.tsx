@@ -5,6 +5,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { CertifiedBadge } from '@/components/ui/CertifiedBadge';
 import { TwinSocials } from '@/components/public/TwinSocials';
 import { FeedPost } from '@/components/public/FeedPost';
+import { MessageTwinButton } from '@/components/public/MessageTwinButton';
 import { formatPrice } from '@/lib/format';
 import type { PricingTier } from '@/types';
 import {
@@ -84,7 +85,7 @@ export default async function CreatorFeedPage({
   const postCount = posts.length;
   const totalLikes = posts.reduce((sum, p) => sum + p.likeCount, 0);
 
-  const { background, c } = getPublicTheme(publicProfile.theme);
+  const { background, c, dark } = getPublicTheme(publicProfile.theme);
 
   return (
     <div className="min-h-[100dvh]" style={{ background }}>
@@ -120,12 +121,7 @@ export default async function CreatorFeedPage({
                   <Plus className="w-4 h-4" aria-hidden="true" /> Add post
                 </Link>
               ) : subscribed ? (
-                <Link
-                  href="/chat"
-                  className="gradient-btn text-white text-sm font-600 px-4 py-2 rounded-full inline-flex items-center gap-1.5"
-                >
-                  <MessageCircle className="w-4 h-4" aria-hidden="true" /> Message
-                </Link>
+                <MessageTwinButton twinId={twin.id} />
               ) : (
                 <Link
                   href={`/explore/${twin.slug}`}
@@ -237,7 +233,7 @@ export default async function CreatorFeedPage({
                 isAuthed={!!viewerProfileId}
                 isOwner={isOwner}
                 viewerProfileId={viewerProfileId}
-                theme={{ card: c.card, heading: c.heading, body: c.body, muted: c.muted }}
+                theme={{ card: c.card, heading: c.heading, body: c.body, muted: c.muted, dark }}
               />
             ))}
           </div>

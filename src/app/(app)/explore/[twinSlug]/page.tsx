@@ -176,10 +176,10 @@ export default function TwinProfilePage() {
         className="w-full gradient-btn text-white font-600 py-3.5 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
       >
         {starting ? (
-          'Redirecting to checkout...'
+          'Getting your spot ready…'
         ) : (
           <>
-            <Sparkles className="w-4 h-4" /> Subscribe — {formatPrice(tiers[selectedTier].cents)}/mo
+            <Sparkles className="w-4 h-4" /> Become a member — {formatPrice(tiers[selectedTier].cents)}/mo
           </>
         )}
       </button>

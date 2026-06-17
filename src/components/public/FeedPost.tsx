@@ -37,6 +37,7 @@ interface ThemeTokens {
   heading: string;
   body: string;
   muted: string;
+  dark: boolean;
 }
 
 export function FeedPost({
@@ -77,6 +78,8 @@ export function FeedPost({
   const [draft, setDraft] = useState('');
   const [posting, setPosting] = useState(false);
   const [shared, setShared] = useState(false);
+
+  const hoverBg = theme.dark ? 'hover:bg-white/10' : 'hover:bg-black/[0.04]';
 
   function requireAuth(): boolean {
     if (!isAuthed) {
@@ -223,7 +226,7 @@ export function FeedPost({
         <div className="flex items-center gap-1 mt-3 -ml-2">
           <button
             onClick={toggleLike}
-            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-600 transition-colors hover:bg-black/[0.04] ${
+            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-600 transition-colors ${hoverBg} ${
               liked ? 'text-[#FF4D6D]' : theme.muted
             }`}
             aria-pressed={liked}
@@ -235,7 +238,7 @@ export function FeedPost({
 
           <button
             onClick={toggleComments}
-            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-600 transition-colors hover:bg-black/[0.04] ${theme.muted}`}
+            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-600 transition-colors ${hoverBg} ${theme.muted}`}
             aria-expanded={open}
             aria-label="Comments"
           >
@@ -245,7 +248,7 @@ export function FeedPost({
 
           <button
             onClick={share}
-            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-600 transition-colors hover:bg-black/[0.04] ${theme.muted}`}
+            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-600 transition-colors ${hoverBg} ${theme.muted}`}
             aria-label="Share"
           >
             {shared ? (
@@ -260,7 +263,7 @@ export function FeedPost({
 
         {/* Comments */}
         {open && (
-          <div className="mt-3 pt-3 border-t border-black/[0.06] space-y-3">
+          <div className={`mt-3 pt-3 border-t space-y-3 ${theme.dark ? 'border-white/10' : 'border-black/[0.06]'}`}>
             {loadingComments ? (
               <div className={`flex items-center gap-2 text-sm ${theme.muted}`}>
                 <Loader2 className="w-4 h-4 animate-spin" /> Loading…
@@ -311,7 +314,11 @@ export function FeedPost({
                     }}
                     maxLength={500}
                     placeholder={isAuthed ? 'Add a comment…' : 'Sign in to comment'}
-                    className="flex-1 text-sm px-3 py-2 rounded-full bg-black/[0.04] border border-black/[0.06] focus:outline-none focus:border-[#A855F7]/40 text-[#0F0F23] placeholder:text-[#94A3B8]"
+                    className={`flex-1 text-sm px-3 py-2 rounded-full focus:outline-none focus:border-[#A855F7]/60 ${
+                      theme.dark
+                        ? 'bg-white/[0.08] border border-white/15 text-white placeholder:text-white/40'
+                        : 'bg-black/[0.04] border border-black/[0.06] text-[#0F0F23] placeholder:text-[#94A3B8]'
+                    }`}
                   />
                   <button
                     onClick={addComment}

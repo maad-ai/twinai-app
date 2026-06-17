@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getProfileByClerkId, getCreatorTwin } from '@/lib/db';
+import { apiRateLimit, checkRateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,9 @@ async function setCover(twinId: string, settings: Record<string, any> | null, co
 export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const blocked = await checkRateLimit(apiRateLimit, userId);
+  if (blocked) return blocked;
 
   const supabase = createAdminClient();
   const profile = await getProfileByClerkId(supabase, userId, 'id');
@@ -79,6 +83,9 @@ export async function POST(req: Request) {
 export async function DELETE() {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const blocked = await checkRateLimit(apiRateLimit, userId);
+  if (blocked) return blocked;
 
   const supabase = createAdminClient();
   const profile = await getProfileByClerkId(supabase, userId, 'id');
