@@ -7,12 +7,7 @@ import type { Twin } from '@/types';
 import { Avatar } from '@/components/ui/Avatar';
 import { CertifiedBadge } from '@/components/ui/CertifiedBadge';
 import { formatPrice } from '@/lib/format';
-
-const DEFAULT_TIERS = [
-  { cents: 999, credits: 80, name: 'On the List' },
-  { cents: 1999, credits: 150, name: 'Close Friends' },
-  { cents: 4999, credits: 400, name: 'Front Row' },
-];
+import { DEFAULT_TIERS } from '@/lib/constants';
 
 export default function TwinProfilePage() {
   const params = useParams();

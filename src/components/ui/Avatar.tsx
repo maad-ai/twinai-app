@@ -55,7 +55,9 @@ export function Avatar({
     <div
       className={`${SIZE_CLASSES[size]} rounded-full ${v.circle} flex items-center justify-center flex-shrink-0${className ? ` ${className}` : ''}`}
     >
-      <span className={`${v.initial} ${TEXT_CLASSES[size]}`}>{name.charAt(0)}</span>
+      <span className={`${v.initial} ${TEXT_CLASSES[size]}`}>
+        {(name?.trim()?.charAt(0) || '?').toUpperCase()}
+      </span>
     </div>
   );
 

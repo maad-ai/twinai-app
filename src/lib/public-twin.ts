@@ -1,17 +1,12 @@
 import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTheme } from '@/lib/themes';
-import type { PricingTier } from '@/types';
 
 export const TWIN_COLUMNS =
   'id, name, slug, tagline, niche, monthly_price_cents, total_subscribers, total_messages, settings, status, photo_url, creator_id';
 
-/** "Close Friends" membership ladder — default tiers when a twin has none. */
-export const DEFAULT_TIERS: PricingTier[] = [
-  { cents: 999, credits: 80, name: 'On the List' },
-  { cents: 1999, credits: 150, name: 'Close Friends' },
-  { cents: 4999, credits: 400, name: 'Front Row' },
-];
+// Default tiers — single source of truth in constants; re-exported for the public pages.
+export { DEFAULT_TIERS } from '@/lib/constants';
 
 export interface Socials {
   instagram?: string | null;
