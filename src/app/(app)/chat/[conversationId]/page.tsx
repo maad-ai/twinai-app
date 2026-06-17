@@ -286,6 +286,9 @@ export default function ChatPage() {
             <Send className="w-4.5 h-4.5 text-white" strokeWidth={2.5} />
           </button>
         </div>
+        <p className="text-[11px] text-[#94A3B8] text-center mt-2">
+          ✦ Twin IA{twinName ? ` de ${twinName}` : ''} — réponses générées par IA, peut faire des erreurs.
+        </p>
       </div>
     </div>
   );

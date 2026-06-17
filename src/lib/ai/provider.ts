@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { CHAT_MODEL, MAX_RESPONSE_TOKENS } from '@/lib/constants';
+import { TWIN_SAFETY_PROMPT } from '@/lib/twin-prompt';
 
 function getClient() {
   const key = process.env.ANTHROPIC_API_KEY;
@@ -20,8 +21,10 @@ export async function* streamChat(
   messages: ChatMessage[],
   trainingContext: string[]
 ): AsyncGenerator<string> {
-  // Build the full system prompt with RAG context
-  let fullSystem = systemPrompt;
+  // Build the full system prompt: a non-negotiable safety/honesty preamble
+  // (AI disclosure + crisis handling — SB 243/FTC) prepended to EVERY twin,
+  // then the twin's own prompt, then RAG context.
+  let fullSystem = `${TWIN_SAFETY_PROMPT}\n\n${systemPrompt}`;
 
   if (trainingContext.length > 0) {
     fullSystem += `\n\nRELEVANT CONTENT FROM YOUR TRAINING:\n${trainingContext.map((c, i) => `[${i + 1}] ${c}`).join('\n\n')}`;
