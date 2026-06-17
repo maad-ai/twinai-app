@@ -1,5 +1,6 @@
 import { stripe } from '@/lib/stripe/client';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { PLATFORM_FEE_PERCENT } from '@/lib/constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +41,9 @@ export async function POST(req: Request) {
 
         if (fanId && twinId) {
           await createSubscription(supabase, fanId, twinId, subscriptionId, credits || 300);
+          // Record the creator's earning for the first payment (renewals are
+          // handled in invoice.payment_succeeded to avoid double-counting).
+          if (obj.amount_total) await recordEarning(supabase, twinId, obj.amount_total);
         }
         break;
       }
@@ -50,11 +54,16 @@ export async function POST(req: Request) {
           // Reset credits to the subscription's tier total (not hardcoded)
           const { data: sub } = await supabase
             .from('subscriptions')
-            .select('credits_total')
+            .select('credits_total, twin_id')
             .eq('stripe_subscription_id', subscriptionId)
             .maybeSingle();
 
           const resetTo = sub?.credits_total ?? 300;
+
+          // Record the creator's earning for this renewal payment.
+          if (sub?.twin_id && obj.amount_paid) {
+            await recordEarning(supabase, sub.twin_id, obj.amount_paid);
+          }
 
           const { error } = await supabase
             .from('subscriptions')
@@ -114,6 +123,39 @@ export async function POST(req: Request) {
   }
 
   return new Response('OK', { status: 200 });
+}
+
+/**
+ * Record a creator earning (net = 80%) for a payment we already collected.
+ * Feeds the earnings ledger that the dashboard + earnings page read.
+ * Best-effort: logs and continues on error.
+ */
+async function recordEarning(
+  supabase: ReturnType<typeof createAdminClient>,
+  twinId: string,
+  grossCents: number
+) {
+  if (!grossCents || grossCents <= 0) return;
+  const { data: twin } = await supabase
+    .from('twins')
+    .select('creator_id')
+    .eq('id', twinId)
+    .maybeSingle();
+  if (!twin?.creator_id) return;
+
+  const fee = Math.round(grossCents * (PLATFORM_FEE_PERCENT / 100));
+  const today = new Date().toISOString().slice(0, 10);
+  const { error } = await supabase.from('earnings').insert({
+    creator_id: twin.creator_id,
+    twin_id: twinId,
+    period_start: today,
+    period_end: today,
+    gross_amount_cents: grossCents,
+    platform_fee_cents: fee,
+    net_amount_cents: grossCents - fee,
+    status: 'pending',
+  });
+  if (error) console.error('Earning record failed (non-fatal):', error);
 }
 
 async function createSubscription(
