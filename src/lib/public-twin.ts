@@ -46,6 +46,8 @@ export interface PostWithSocial extends Post {
   likeCount: number;
   likedByMe: boolean;
   commentCount: number;
+  /** Bounded curiosity snippet for locked posts (≤70 chars, no media leak). */
+  teaser: string | null;
 }
 
 /** Fetch a public (active/training) twin by slug. Never 500s. */
@@ -143,10 +145,19 @@ export async function getPostsWithSocial(
     // can't see it — client-component props are serialized into the HTML, and
     // the storage bucket is public, so a leaked media_url = paywall bypass.
     const locked = p.visibility === 'subscribers' && !canSeeMembers;
+    // Bounded teaser (≤70 chars) — a curiosity hook for locked posts that never
+    // leaks the full body or any media URL.
+    const teaser =
+      locked && p.body
+        ? p.body.length > 70
+          ? p.body.slice(0, 70).trimEnd() + '…'
+          : p.body
+        : null;
     return {
       ...p,
       body: locked ? null : p.body,
       media_url: locked ? null : p.media_url,
+      teaser,
       likeCount: likeCount[p.id] || 0,
       likedByMe: !!likedByMe[p.id],
       commentCount: commentCount[p.id] || 0,

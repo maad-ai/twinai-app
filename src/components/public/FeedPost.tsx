@@ -22,6 +22,7 @@ interface PostData {
   media_type: 'text' | 'image' | 'video';
   visibility: 'public' | 'subscribers';
   created_at: string;
+  teaser?: string | null;
 }
 
 interface Comment {
@@ -186,11 +187,28 @@ export function FeedPost({
             <KindIcon className="w-5 h-5 text-white" aria-hidden="true" />
           </div>
           <p className={`text-sm font-700 ${theme.heading}`}>Close Friends only</p>
+          {post.teaser && (
+            <p className={`text-xs italic max-w-[16rem] ${theme.body}`}>« {post.teaser} »</p>
+          )}
           <p className={`text-xs max-w-[16rem] ${theme.muted}`}>
             Members see this {kind} the second it drops — join from {lockedTeaserPrice}/mo and it&apos;s
             yours.
           </p>
         </div>
+        {(likeCount > 0 || commentCount > 0) && (
+          <div className={`flex items-center gap-3 px-4 py-2 text-xs ${theme.muted}`}>
+            {likeCount > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <Heart className="w-3.5 h-3.5" /> {likeCount}
+              </span>
+            )}
+            {commentCount > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <MessageCircle className="w-3.5 h-3.5" /> {commentCount}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     );
   }
