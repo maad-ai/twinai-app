@@ -223,13 +223,27 @@ export default function ChatPage() {
       {/* Messages */}
       <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 && (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#A855F7]/20 to-[#00D4FF]/20 flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl font-800 gradient-text">{twinName.charAt(0)}</span>
-              </div>
-              <p className="font-display font-700 text-lg text-[#0F0F23] mb-1">Chat with {twinName}</p>
-              <p className="text-sm text-[#94A3B8]">Send a message to start the conversation</p>
+          <div className="flex flex-col items-center justify-center h-full px-4">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#A855F7]/20 to-[#00D4FF]/20 flex items-center justify-center mb-4">
+              <span className="text-2xl font-800 gradient-text">{twinName.charAt(0)}</span>
+            </div>
+            <p className="font-display font-700 text-lg text-[#0F0F23] mb-1">{twinName}</p>
+            <p className="text-sm text-[#94A3B8] text-center max-w-xs mb-5">
+              Hey! I&apos;m {twinName}&apos;s AI twin — ask me anything to get started.
+            </p>
+            <div className="flex flex-wrap gap-2 justify-center max-w-sm">
+              {['Introduce yourself', 'What can you help me with?', 'Give me a quick tip'].map((q) => (
+                <button
+                  key={q}
+                  onClick={() => {
+                    setInput(q);
+                    inputRef.current?.focus();
+                  }}
+                  className="text-sm font-500 px-3 py-1.5 rounded-full border border-[#A855F7]/20 text-[#A855F7] bg-[#A855F7]/[0.06] hover:bg-[#A855F7]/10 transition-colors"
+                >
+                  {q}
+                </button>
+              ))}
             </div>
           </div>
         )}
