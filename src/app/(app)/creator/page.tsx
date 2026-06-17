@@ -1,9 +1,9 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { LayoutDashboard, Users, MessageCircle, DollarSign, Settings, Eye, BadgeCheck } from 'lucide-react';
+import { LayoutDashboard, Users, MessageCircle, DollarSign, Settings, Eye, BadgeCheck, Newspaper, Sparkles, HelpCircle, CheckCircle2, Circle } from 'lucide-react';
 import Link from 'next/link';
-import { formatPrice } from '@/lib/format';
+import { formatPrice, timeAgo } from '@/lib/format';
 import { ShareTwinLink } from '@/components/creator/ShareTwinLink';
 
 export const metadata = { title: 'Creator Dashboard' };
@@ -46,6 +46,51 @@ export default async function CreatorDashboardPage() {
     lifetimeCents = 0;
   }
 
+  // Creator-tooling stats (graceful if a table/migration isn't applied yet).
+  let trainedCount = 0;
+  let postsCount = 0;
+  let unansweredCount = 0;
+  let lastPostAt: string | null = null;
+  if (twin) {
+    const [trained, postsRes, unanswered] = await Promise.all([
+      supabase
+        .from('training_content')
+        .select('id', { count: 'exact', head: true })
+        .eq('twin_id', twin.id)
+        .eq('status', 'embedded'),
+      supabase
+        .from('posts')
+        .select('created_at')
+        .eq('twin_id', twin.id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('unanswered_questions')
+        .select('id', { count: 'exact', head: true })
+        .eq('twin_id', twin.id),
+    ]);
+    trainedCount = trained.error ? 0 : trained.count ?? 0;
+    unansweredCount = unanswered.error ? 0 : unanswered.count ?? 0;
+    if (!postsRes.error && postsRes.data) {
+      postsCount = postsRes.data.length;
+      lastPostAt = (postsRes.data[0] as { created_at?: string })?.created_at ?? null;
+    }
+  }
+
+  const pub =
+    (twin?.settings?.public_profile as { bio?: string; cover?: string } | undefined) || {};
+  const checklist = twin
+    ? [
+        { label: 'Photo de profil', done: !!twin.photo_url, href: '/creator/twin/profile' },
+        { label: 'Bannière de couverture', done: !!pub.cover, href: '/creator/twin/profile' },
+        { label: 'Bio', done: !!pub.bio, href: '/creator/twin/profile' },
+        { label: '5 sources entraînées', done: trainedCount >= 5, href: '/creator/twin/training' },
+        { label: '3 posts publiés', done: postsCount >= 3, href: '/creator/twin/posts' },
+        { label: 'Page publiée', done: twin.status === 'active', href: '/creator/twin/profile' },
+      ]
+    : [];
+  const doneCount = checklist.filter((c) => c.done).length;
+  const pct = checklist.length ? Math.round((doneCount / checklist.length) * 100) : 0;
+
   return (
     <div className="p-6 md:p-8 max-w-5xl">
       {/* Header */}
@@ -69,6 +114,41 @@ export default async function CreatorDashboardPage() {
 
       {/* Shareable link — the bio-link moment */}
       {twin && <ShareTwinLink slug={twin.slug} name={twin.name} />}
+
+      {/* Setup checklist — drives creators to complete their page (the supply bottleneck) */}
+      {twin && pct < 100 && (
+        <div className="card rounded-2xl p-6 mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-display font-700 text-lg text-[#0F0F23]">Termine ta page</h2>
+            <span className="text-sm font-700 text-[#A855F7]">{pct}%</span>
+          </div>
+          <div className="h-2 rounded-full bg-black/[0.06] overflow-hidden mb-4">
+            <div
+              className="h-full bg-gradient-to-r from-[#A855F7] to-[#00D4FF] transition-all"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <ul className="grid sm:grid-cols-2 gap-2">
+            {checklist.map((c) => (
+              <li key={c.label}>
+                <Link
+                  href={c.href}
+                  className={`flex items-center gap-2 text-sm ${
+                    c.done ? 'text-[#94A3B8]' : 'text-[#0F0F23] hover:text-[#A855F7]'
+                  }`}
+                >
+                  {c.done ? (
+                    <CheckCircle2 className="w-4 h-4 text-[#22C55E] flex-shrink-0" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-[#CBD5E1] flex-shrink-0" />
+                  )}
+                  <span className={c.done ? 'line-through' : 'font-500'}>{c.label}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid sm:grid-cols-3 gap-4 mb-8">
@@ -134,6 +214,53 @@ export default async function CreatorDashboardPage() {
               <p className="text-[#0F0F23]">{twin.tagline}</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Twin health — keeps creators training + posting (fresh content = fan retention) */}
+      {twin && (
+        <div className="card rounded-2xl p-6 mb-6">
+          <h2 className="font-display font-700 text-lg text-[#0F0F23] mb-4">Santé de ton twin</h2>
+          <div className="grid sm:grid-cols-3 gap-4">
+            <Link href="/creator/twin/training" className="block group">
+              <div className="flex items-center gap-2 mb-1">
+                <Sparkles className="w-4 h-4 text-[#A855F7]" strokeWidth={1.8} />
+                <p className="text-xs text-[#94A3B8]">Sources entraînées</p>
+              </div>
+              <p className="font-display font-800 text-2xl text-[#0F0F23] group-hover:text-[#A855F7] transition-colors">
+                {trainedCount}
+              </p>
+              {trainedCount < 5 && (
+                <p className="text-xs text-[#D97706] mt-0.5">Vise 5+ pour un twin plus fidèle</p>
+              )}
+            </Link>
+            <Link href="/creator/twin/posts" className="block group">
+              <div className="flex items-center gap-2 mb-1">
+                <Newspaper className="w-4 h-4 text-[#22C55E]" strokeWidth={1.8} />
+                <p className="text-xs text-[#94A3B8]">Posts</p>
+              </div>
+              <p className="font-display font-800 text-2xl text-[#0F0F23] group-hover:text-[#22C55E] transition-colors">
+                {postsCount}
+              </p>
+              <p className="text-xs text-[#94A3B8] mt-0.5">
+                {lastPostAt
+                  ? `Dernier post il y a ${timeAgo(lastPostAt)}`
+                  : 'Aucun post — publie pour retenir tes fans'}
+              </p>
+            </Link>
+            <Link href="/creator/questions" className="block group">
+              <div className="flex items-center gap-2 mb-1">
+                <HelpCircle className="w-4 h-4 text-[#FF6B6B]" strokeWidth={1.8} />
+                <p className="text-xs text-[#94A3B8]">Questions sans réponse</p>
+              </div>
+              <p className="font-display font-800 text-2xl text-[#0F0F23] group-hover:text-[#FF6B6B] transition-colors">
+                {unansweredCount}
+              </p>
+              {unansweredCount > 0 && (
+                <p className="text-xs text-[#D97706] mt-0.5">À combler pour améliorer le twin</p>
+              )}
+            </Link>
+          </div>
         </div>
       )}
 
