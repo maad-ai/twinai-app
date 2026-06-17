@@ -202,6 +202,13 @@ export const addCommentSchema = z.object({
   body: z.string().trim().min(1).max(500),
 });
 
+/** A one-time tip to a creator ($2–$500). */
+export const tipCheckoutSchema = z.object({
+  twinId: z.string().uuid(),
+  amountCents: z.number().int().min(200).max(50000),
+  message: z.string().trim().max(200).optional().nullable(),
+});
+
 /**
  * Parse a request body against a schema.
  * Returns { data } on success or { error: Response } on failure.

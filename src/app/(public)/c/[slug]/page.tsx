@@ -6,6 +6,7 @@ import { CertifiedBadge } from '@/components/ui/CertifiedBadge';
 import { TwinSocials } from '@/components/public/TwinSocials';
 import { FeedPost } from '@/components/public/FeedPost';
 import { MessageTwinButton } from '@/components/public/MessageTwinButton';
+import { TipButton } from '@/components/public/TipButton';
 import { formatPrice } from '@/lib/format';
 import type { PricingTier } from '@/types';
 import {
@@ -206,6 +207,18 @@ export default async function CreatorFeedPage({
             Become a member — from {formatPrice(cheapest.cents)}/mo
             <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </Link>
+        )}
+
+        {/* Tip — extra ARPU lever, open to everyone but the owner */}
+        {!isOwner && (
+          <div className="mb-6">
+            <TipButton
+              twinId={twin.id}
+              twinName={twin.name}
+              isAuthed={!!viewerProfileId}
+              theme={{ card: c.card, heading: c.heading, muted: c.muted }}
+            />
+          </div>
         )}
 
         {/* Feed */}

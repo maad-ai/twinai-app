@@ -27,6 +27,21 @@ export async function POST(req: Request) {
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
+        // One-time tip (mode=payment) — mark paid + record the creator's earning.
+        if (obj.metadata?.type === 'tip') {
+          const tipId = obj.metadata.tip_id;
+          const tipTwinId = obj.metadata.twin_id;
+          const amount = obj.amount_total ?? parseInt(obj.metadata.amount_cents ?? '0', 10);
+          if (tipId) {
+            await supabase
+              .from('tips')
+              .update({ status: 'paid', stripe_session_id: obj.id })
+              .eq('id', tipId);
+          }
+          if (tipTwinId && amount) await recordEarning(supabase, tipTwinId, amount);
+          break;
+        }
+
         const subscriptionId = obj.subscription as string;
         let fanId = obj.metadata?.fan_id;
         let twinId = obj.metadata?.twin_id;
