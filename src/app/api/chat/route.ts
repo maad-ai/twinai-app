@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getProfileByClerkId } from '@/lib/db';
-import { streamChat } from '@/lib/ai/provider';
+import { streamChat, summarizeFanMemory } from '@/lib/ai/provider';
 import { encrypt, decodeMessage } from '@/lib/encryption';
 import { parseBody, sendMessageSchema } from '@/lib/validators';
 import { chatRateLimit, checkRateLimit } from '@/lib/rate-limit';
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient();
 
-  const profile = await getProfileByClerkId(supabase, userId);
+  const profile = await getProfileByClerkId(supabase, userId, 'id, display_name');
 
   if (!profile) {
     return Response.json({ error: 'Profile not found' }, { status: 404 });
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
   // Get or create conversation
   let { data: conversation } = await supabase
     .from('conversations')
-    .select('id, message_count')
+    .select('*')
     .eq('fan_id', profile.id)
     .eq('twin_id', body.twinId)
     .maybeSingle();
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
     const { data: newConvo } = await supabase
       .from('conversations')
       .insert({ fan_id: profile.id, twin_id: body.twinId })
-      .select('id, message_count')
+      .select('*')
       .maybeSingle();
     conversation = newConvo;
   }
@@ -176,10 +176,22 @@ export async function POST(req: Request) {
   const convId = conversation.id;
   const convCount = conversation.message_count || 0;
 
+  // Persistent fan memory: tell the twin who it's talking to so it remembers
+  // them across sessions (the differentiator vs session-only clones).
+  const fanName: string | null = profile.display_name ?? null;
+  const fanMemory: string | null = conversation.memory ?? null;
+  let fanContext = '';
+  if (!isCreator && (fanName || fanMemory)) {
+    fanContext =
+      `\n\nABOUT THE FAN YOU'RE TALKING TO:` +
+      (fanName ? `\n- Their name is ${fanName} — use it naturally now and then.` : '') +
+      (fanMemory ? `\n- What you remember about them from past chats:\n${fanMemory}` : '');
+  }
+
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        for await (const chunk of streamChat(twin.system_prompt, history, context)) {
+        for await (const chunk of streamChat(twin.system_prompt + fanContext, history, context)) {
           fullResponse += chunk;
           controller.enqueue(encoder.encode(chunk));
         }
@@ -197,6 +209,21 @@ export async function POST(req: Request) {
           .from('conversations')
           .update({ last_message_at: new Date().toISOString(), message_count: convCount + 2 })
           .eq('id', convId);
+
+        // Fire-and-forget: refresh the persistent fan memory (skip creators testing).
+        if (!isCreator) {
+          summarizeFanMemory(fanMemory, body.message, fullResponse, fanName).then(
+            (mem) => {
+              if (mem && mem !== fanMemory) {
+                supabase.from('conversations').update({ memory: mem }).eq('id', convId).then(
+                  () => {},
+                  () => {}
+                );
+              }
+            },
+            () => {}
+          );
+        }
 
         await supabase
           .from('twins')

@@ -55,3 +55,40 @@ export async function* streamChat(
     }
   }
 }
+
+/**
+ * Maintain a short running memory of durable facts about a fan, so the twin
+ * remembers them across sessions. Cheap (Haiku), best-effort — returns null on
+ * any error so the caller can no-op. Capped to keep the prompt small.
+ */
+export async function summarizeFanMemory(
+  existingMemory: string | null,
+  fanMessage: string,
+  twinReply: string,
+  fanName?: string | null
+): Promise<string | null> {
+  try {
+    const res = await getClient().messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 220,
+      system:
+        'You maintain a concise running memory of a fan for a creator\'s AI twin, so it can remember them across chats. Output ONLY the updated memory as terse bullet-style notes (max ~80 words): durable facts the fan shared (name, goals, preferences, situation, what they care about). Merge new facts into the existing memory, drop nothing important, keep no chit-chat or one-off pleasantries. If there is nothing durable to add, return the existing memory unchanged. No preamble, no explanation — just the notes.',
+      messages: [
+        {
+          role: 'user',
+          content: `EXISTING MEMORY:\n${existingMemory || '(none yet)'}\n\nLATEST EXCHANGE:\nFan${fanName ? ` (${fanName})` : ''}: ${fanMessage}\nTwin: ${twinReply}\n\nUpdated memory:`,
+        },
+      ],
+    });
+    const text = res.content
+      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+      .map((b) => b.text)
+      .join('')
+      .trim();
+    if (!text) return null;
+    return text.slice(0, 1500);
+  } catch (err) {
+    console.error('Fan memory update failed (non-fatal):', err);
+    return null;
+  }
+}
