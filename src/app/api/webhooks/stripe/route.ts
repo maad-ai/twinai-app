@@ -38,7 +38,7 @@ export async function POST(req: Request) {
               .update({ status: 'paid', stripe_session_id: obj.id })
               .eq('id', tipId);
           }
-          if (tipTwinId && amount) await recordEarning(supabase, tipTwinId, amount);
+          if (tipTwinId && amount) await recordEarning(supabase, tipTwinId, amount, obj.id);
           break;
         }
 
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
           await createSubscription(supabase, fanId, twinId, subscriptionId, credits || 300);
           // Record the creator's earning for the first payment (renewals are
           // handled in invoice.payment_succeeded to avoid double-counting).
-          if (obj.amount_total) await recordEarning(supabase, twinId, obj.amount_total);
+          if (obj.amount_total) await recordEarning(supabase, twinId, obj.amount_total, obj.id);
         }
         break;
       }
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
 
           // Record the creator's earning for this renewal payment.
           if (sub?.twin_id && obj.amount_paid) {
-            await recordEarning(supabase, sub.twin_id, obj.amount_paid);
+            await recordEarning(supabase, sub.twin_id, obj.amount_paid, obj.id);
           }
 
           const { error } = await supabase
@@ -148,7 +148,8 @@ export async function POST(req: Request) {
 async function recordEarning(
   supabase: ReturnType<typeof createAdminClient>,
   twinId: string,
-  grossCents: number
+  grossCents: number,
+  sourceId?: string
 ) {
   if (!grossCents || grossCents <= 0) return;
   const { data: twin } = await supabase
@@ -160,7 +161,7 @@ async function recordEarning(
 
   const fee = Math.round(grossCents * (PLATFORM_FEE_PERCENT / 100));
   const today = new Date().toISOString().slice(0, 10);
-  const { error } = await supabase.from('earnings').insert({
+  const row = {
     creator_id: twin.creator_id,
     twin_id: twinId,
     period_start: today,
@@ -169,7 +170,17 @@ async function recordEarning(
     platform_fee_cents: fee,
     net_amount_cents: grossCents - fee,
     status: 'pending',
-  });
+  };
+
+  // Idempotent on the Stripe source id (webhooks are at-least-once). Falls back
+  // to a plain insert if migration 011 (source_id) hasn't been applied.
+  if (sourceId) {
+    const { error } = await supabase
+      .from('earnings')
+      .upsert({ ...row, source_id: sourceId }, { onConflict: 'source_id', ignoreDuplicates: true });
+    if (!error) return;
+  }
+  const { error } = await supabase.from('earnings').insert(row);
   if (error) console.error('Earning record failed (non-fatal):', error);
 }
 
